@@ -108,37 +108,91 @@ int main()
 
 void cadastrar_Informacao_Produtos(Cadastrar_Produtos *pt)
 {
- printf("\n-- Cadastrar Produto --\n");
+    printf("\n-- Cadastrar Produto --\n");
+    int validacao_de_Resposta = 0;
 
-    printf("ID: ");
-    scanf("%d", &pt->id);
-    getchar();
-    pular_Linha();
+        do
+        {
+            if(validacao_de_Resposta > 0)
+                printf("Valor digitado menor ou igual a zera! Digite outro valor...\n");
 
-    printf("Descrição: ");
-    fgets(pt->descricao_Produto, max_caracter, stdin);
-    strtok(pt->descricao_Produto, "\n"); // Remove o \n do final
-    pular_Linha();
+            printf("ID: ");
+            scanf("%d", &pt->id);
+            getchar();
+            validacao_de_Resposta++;
+        } while (pt->id <= 0);
+        pular_Linha();
+        validacao_de_Resposta =  0;
 
-    printf("Categoria (1-Alimentos, 2-Limpeza, 3-Panificação): ");
-    scanf("%d", &pt->categoria_Produto);
-    pular_Linha();
+        printf("Descrição: ");
+        fgets(pt->descricao_Produto, max_caracter, stdin);
+        strtok(pt->descricao_Produto, "\n"); // Remove o \n do final
+        pular_Linha();
 
-    printf("Preço de Compra: ");
-    scanf("%f", &pt->Preco_De_Compra);
-    pular_Linha();
+        do
+        {
+            if(validacao_de_Resposta > 0)
+                printf("Valor digitado não é 1 ou 2 ou 3! Digite um valor valido...\n");
 
-    printf("Preço de Venda: ");
-    scanf("%f", &pt->Preco_De_Venda);
-    pular_Linha();
+            printf("Categoria (1-Alimentos, 2-Limpeza, 3-Panificação): ");
+            scanf("%d", &pt->categoria_Produto);
+            validacao_de_Resposta++;
+        } while (pt->categoria_Produto != 1 && pt->categoria_Produto != 2 && pt->categoria_Produto != 3);
+        pular_Linha();
+        validacao_de_Resposta =  0;
 
-    printf("Quantidade em Estoque: ");
-    scanf("%d", &pt->Quantidade_em_Estoque);
-    pular_Linha();
 
-    printf("Estoque Mínimo: ");
-    scanf("%d", &pt->estoque_Minimo);
-    pular_Linha();
+        do
+        {
+            if(validacao_de_Resposta > 0)
+                printf("Valor digitado menor ou igual a zera! Digite outro valor...\n");
+
+            printf("VALOR DE COMPRA: ");
+            scanf("%f", &pt->Preco_De_Compra);
+            getchar();
+            validacao_de_Resposta++;
+        } while (pt->Preco_De_Compra <= 0);
+        pular_Linha();
+        validacao_de_Resposta =  0;
+
+        do
+        {
+            if(validacao_de_Resposta > 0)
+                printf("Valor digitado menor ou igual a zera! Digite outro valor...\n");
+
+            printf("PREÇO DE VENDA: ");
+            scanf("%f", &pt->Preco_De_Venda);
+            getchar();
+            validacao_de_Resposta++;
+        } while (pt->Preco_De_Venda <= 0);
+        pular_Linha();
+        validacao_de_Resposta =  0;
+
+        do
+        {
+            if(validacao_de_Resposta > 0)
+                printf("Valor digitado menor ou igual a zera! Digite outro valor...\n");
+
+            printf("QUANTIDADE ESTOQUE: ");
+            scanf("%d", &pt->Quantidade_em_Estoque);
+            getchar();
+            validacao_de_Resposta++;
+        } while (pt->Quantidade_em_Estoque <= 0);
+        pular_Linha();
+        validacao_de_Resposta =  0;
+
+        do
+        {
+            if(validacao_de_Resposta > 0)
+                printf("Valor digitado menor ou igual a zera! Digite outro valor...\n");
+
+            printf("ESTOQUE MINÍMO: ");
+            scanf("%d", &pt->estoque_Minimo);
+            getchar();
+            validacao_de_Resposta++;
+        } while (pt->estoque_Minimo <= 0);
+        pular_Linha();
+        validacao_de_Resposta =  0;
 }
 
 void salvar_Produtos_Arquivo(Cadastrar_Produtos *pt, FILE *arquivo)
