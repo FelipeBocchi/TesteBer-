@@ -6,7 +6,8 @@
 
 #define max_caracter 100      //max de caracter para a descrição
 #define ARQUIVO "cadastrar&vendas.txt"  //renomeando o arquivo que vai ser valvo
-#define COMPRAS "vendas&compras.txt"    //criando um novo arquivo para salvar as compras de cada cliente;
+#define COMPRAS "vendas.txt"    //criando um novo arquivo para salvar as compras de cada cliente;
+#define TEMP "temp.txt"
 
 typedef struct
 {
@@ -130,7 +131,7 @@ int main()
                         break;
                 }
 
-            }while(opcao != 0);
+            }while(opcao != 3);
             break;
 
         case 2:
@@ -315,46 +316,34 @@ void listar_Produtos()
     fclose(arquivo);
 }
 
-void mostrar_Produtos_Compra()
-{
+void mostrar_Produtos_Compra() {
     FILE *arquivo = fopen(ARQUIVO, "r");
-    if(arquivo == NULL)
-    {
-        printf("ERRO AO ABRIR ARQUIVO!!!\n");
-        return ;
+
+    if (arquivo == NULL) {
+        printf("Erro ao abrir o arquivo de produtos.\n");
+        return;
     }
 
-    printf("\nCODIGO\t DESCRIÇÃO\tCATEGORIA\tPREÇO DE VENDA\tQTD ESTOQUE\n\n");
+    Cadastrar_Produtos produto;
 
-    //A linha representa cada linha do arquivo, o fgetsvai ler toda  a linha como string
-    char  linha[256];
-    Cadastrar_Produtos temp;
+    printf("\nProdutos disponíveis:\n");
+    printf("ID\tDescrição\t\tEstoque\t\tPreço de Venda\n");
+    printf("---------------------------------------------------------------\n");
 
-     while (fgets(linha, sizeof(linha), arquivo) != NULL)
+    while (fscanf(arquivo, "%d;%[^;];%d;%f;%f;%d;%d\n",
+                  &produto.id,
+                  produto.descricao_Produto,
+                  &produto.categoria_Produto,
+                  &produto.Preco_De_Compra,
+                  &produto.Preco_De_Venda,
+                  &produto.Quantidade_em_Estoque,
+                  &produto.estoque_Minimo) != EOF)
     {
-        //sscanf vai ler todos os dados, se não conseguir vai iginorar evitando loop
-        int campos_lidos = sscanf(linha, "%d;%[^;];%d;%f;%f;%d;%d",
-                                  &temp.id,
-                                  temp.descricao_Produto,
-                                  &temp.categoria_Produto,
-                                  &temp.Preco_De_Compra,
-                                  &temp.Preco_De_Venda,
-                                  &temp.Quantidade_em_Estoque,
-                                  &temp.estoque_Minimo);
-
-        if (campos_lidos == 7)
-        {
-            printf("%d\t  %s \t\t%.d\t\tR$ %.2f\t\t%d\n",
-                   temp.id,
-                   temp.descricao_Produto,
-                   temp.categoria_Produto,
-                   temp.Preco_De_Venda,
-                   temp.Quantidade_em_Estoque);
-        }
-        else
-        {
-            printf("Linha mal formatada no arquivo. Pulando...\n");
-        }
+        printf("%d\t%-20s\t%d\t\tR$ %.2f\n",
+               produto.id,
+               produto.descricao_Produto,
+               produto.Quantidade_em_Estoque,
+               produto.Preco_De_Venda);
     }
 
     fclose(arquivo);
@@ -396,10 +385,10 @@ void venda_de_Produtos()
         for (int i = 0; i < clientes[idx].qtd_itens; i++)
         {
             printf("%s\t%d\tR$ %.2f\t\tR$ %.2f\n",
-                clientes[idx].itens->descricao,
-                clientes[idx].itens ->quantidade,
-                clientes[idx].itens->preco_unitario,
-                clientes[idx].itens->subtotal);
+                clientes[idx].itens[i].descricao,
+                clientes[idx].itens[i].quantidade,
+                clientes[idx].itens[i].preco_unitario,
+                clientes[idx].itens[i].subtotal);
         }
 
         //Abrindo o arquivo que está nosso aetoque para poder verificar os dados dos produtos;
@@ -440,10 +429,11 @@ void venda_de_Produtos()
 
                 if(quantidade <= temp.Quantidade_em_Estoque)
                 {
-                    if(temp.Quantidade_em_Estoque <= temp.estoque_Minimo)
+                    float valor = temp.Quantidade_em_Estoque - quantidade;
+                    if(valor <= temp.estoque_Minimo)
                         printf("\nAviso: estoque no limite mínimo!!!!");
 
-                   // atualizarEstoque(codigo, quantidade);     ARRUMARRRRRR!!!!!!!!!!!
+                   atualizarEstoque(codigo, quantidade);
 
                     clientes[idx].itens = realloc(clientes[idx].itens, (clientes[idx].qtd_itens + 1)
                                              * (sizeof(ItemCarrinho)));
@@ -492,59 +482,48 @@ void venda_de_Produtos()
 }
 
 void atualizarEstoque(int idProduto, int quantidadeComprada) {
-    FILE *original = fopen(ARQUIVO, "r");
-    FILE *temp = fopen("temp.txt", "w");
-    Cadastrar_Produtos iten;
+    FILE *arquivoOriginal = fopen(ARQUIVO, "r");
+    FILE *arquivoTemp = fopen(TEMP, "w");
 
-    if (!original || !temp) {
-        printf("Erro ao abrir os arquivos!\n");
+    if (!arquivoOriginal || !arquivoTemp) {
+        printf("Erro ao abrir arquivos para atualizar estoque.\n");
+        if (arquivoOriginal) fclose(arquivoOriginal);
+        if (arquivoTemp) fclose(arquivoTemp);
         return;
     }
 
-    char linha[256];
-    int encontrado = 0;
+    Cadastrar_Produtos temp;
 
-    while (fgets(linha, sizeof(linha), original)) {
-        if (sscanf(linha,"%d;%[^;];%d;%f;%f;%d;%d",
-                    iten.id,
-                    iten.descricao_Produto,
-                    iten.categoria_Produto, iten.Preco_De_Compra,
-                    iten.Preco_De_Venda,
-                    iten.Quantidade_em_Estoque,
-                    iten.estoque_Minimo) == 7) {
-            if (iten.id == idProduto) {
-                iten.Quantidade_em_Estoque -= quantidadeComprada;
-                if (iten.Quantidade_em_Estoque < 0) iten.Quantidade_em_Estoque = 0;
-                encontrado = 1;
-            }
-            fprintf(temp, "%d;%s;%d;%.2f;%.2f;%d;%d\n",
-                    iten.id,
-                    iten.descricao_Produto,
-                    iten.categoria_Produto,
-                    iten.Preco_De_Compra,
-                    iten.Preco_De_Venda,
-                    iten.Quantidade_em_Estoque,
-                    iten.estoque_Minimo);
+    while (fscanf(arquivoOriginal, "%d;%[^;];%d;%f;%f;%d;%d\n",
+                  &temp.id,
+                  temp.descricao_Produto,
+                  &temp.categoria_Produto,
+                  &temp.Preco_De_Compra,
+                  &temp.Preco_De_Venda,
+                  &temp.Quantidade_em_Estoque,
+                  &temp.estoque_Minimo) != EOF)
+    {
+        if (temp.id == idProduto) {
+            temp.Quantidade_em_Estoque -= quantidadeComprada;
+            if (temp.Quantidade_em_Estoque < 0) temp.Quantidade_em_Estoque = 0;
         }
+
+        fprintf(arquivoTemp, "%d;%s;%d;%.2f;%.2f;%d;%d\n",
+                temp.id,
+                temp.descricao_Produto,
+                temp.categoria_Produto,
+                temp.Preco_De_Compra,
+                temp.Preco_De_Venda,
+                temp.Quantidade_em_Estoque,
+                temp.estoque_Minimo);
     }
 
-    fclose(original);
-    fclose(temp);
+    fclose(arquivoOriginal);
+    fclose(arquivoTemp);
 
-    if (remove(ARQUIVO) != 0) {
-        printf("Erro ao remover arquivo original.\n");
-        return;
-    }
-
-    if (rename("temp.txt", ARQUIVO) != 0) {
-        printf("Erro ao renomear arquivo temporário.\n");
-        return;
-    }
-
-    if (encontrado)
-        printf("Estoque do produto %d atualizado com sucesso.\n", idProduto);
-    else
-        printf("Produto com ID %d não encontrado.\n", idProduto);
+    // Substitui o arquivo original pelo atualizado
+    remove(ARQUIVO);
+    rename(TEMP, ARQUIVO);
 }
 
 void nota_E_Desconto()
@@ -557,16 +536,16 @@ void nota_E_Desconto()
     for (int i = 0; i < clientes[idx].qtd_itens; i++)
     {
         printf("%s\t%d\tR$ %.2f\t\tR$ %.2f\n",
-            clientes[idx].itens->descricao,
-            clientes[idx].itens ->quantidade,
-            clientes[idx].itens->preco_unitario,
-            clientes[idx].itens->subtotal);
-            total_compra += clientes[idx].itens->subtotal;
+            clientes[idx].itens[i].descricao,
+            clientes[idx].itens[i].quantidade,
+            clientes[idx].itens[i].preco_unitario,
+            clientes[idx].itens[i].subtotal);
+            total_compra += clientes[idx].itens[i].subtotal;
     }
 
     printf("\nTotal compra: \n\t\tR$ %.2f", total_compra);
 
-    printf("\nHá desconto (informe 0 (para não) ou % concedido: ");
+    printf("\nHá desconto (informe 0 (para não) ou porcentos concedido: ");
     if((scanf("%f", &desconto_no_totalC)) != 0)
     {
         desconto_no_totalC = desconto_no_totalC/100;
@@ -587,11 +566,11 @@ void nota_fiscal()
     for (int i = 0; i < clientes[idx].qtd_itens; i++)
     {
         printf("%s\t%d\tR$ %.2f\t\tR$ %.2f\n",
-            clientes[idx].itens->descricao,
-            clientes[idx].itens ->quantidade,
-            clientes[idx].itens->preco_unitario,
-            clientes[idx].itens->subtotal);
-            total_compra += clientes[idx].itens->subtotal;
+            clientes[idx].itens[i].descricao,
+            clientes[idx].itens[i].quantidade,
+            clientes[idx].itens[i].preco_unitario,
+            clientes[idx].itens[i].subtotal);
+            total_compra += clientes[idx].itens[i].subtotal;
     }
 
     printf("\nTotal compra: \n\t\tR$ %.2f", total_compra);
@@ -599,7 +578,7 @@ void nota_fiscal()
 
 void salvar_Compra()
 {
-    FILE *file =  fopen(COMPRAS, "a+");
+    FILE *file = fopen("venda.txt", "a+");
     if(file == NULL)
         printf("\nErro ao abrir o arquivo de compras");
 
@@ -613,10 +592,10 @@ void salvar_Compra()
     for(int i =0; i < clientes[idx].qtd_itens; i++)
     {
         fprintf(file, "%d;%s;%f;%f\n",
-            clientes[idx].itens->id_produto,
-            clientes[idx].itens->descricao,
-            clientes[idx].itens->preco_unitario,
-            clientes[idx].itens->subtotal);
+            clientes[idx].itens[i].id_produto,
+            clientes[idx].itens[i].descricao,
+            clientes[idx].itens[i].preco_unitario,
+            clientes[idx].itens[i].subtotal);
     }
 
     for (int i = 0; i < qtd_clientes; i++)
@@ -629,7 +608,7 @@ void salvar_Compra()
 void pagamento()
 {
     int opcao, aprovacao_maquina = 0, x=0;
-    float valor_QFalta;
+    float valor_QFalta, valor_Recebido;
     char y;
 
     if(clientes[idx].total_final == 0)
@@ -659,7 +638,7 @@ void pagamento()
                     x++;
                 }while(aprovacao_maquina !=  1 && aprovacao_maquina != 0);
 
-                if(aprovacao_maquina =  1)
+                if(aprovacao_maquina == 1)
                 {
                     clientes[idx].situacao_Do_pagamento = 'f';
                     clientes[idx].valor_Recebido = clientes[idx].total_final;
@@ -673,7 +652,8 @@ void pagamento()
                     clientes[idx].categoria_Pagamento = 'd';
 
                     printf("\nValor recebido: ");
-                    scanf("%f", clientes[idx].valor_Recebido);
+                    scanf("%f", &valor_Recebido);
+                    clientes[idx].valor_Recebido = valor_Recebido;
 
                     //Aqui vai o troco, fazer o calculo de quanto temos no caixa e devolter determinada quantia
                     if(clientes[idx].valor_Recebido < clientes[idx].total_final)
@@ -698,7 +678,8 @@ void pagamento()
                                 valor_QFalta = (clientes[idx].total_final) - (clientes[idx].valor_Recebido);
                                 printf("\nA quantia que falta é: R$ %.2f", valor_QFalta);
                                 printf("\nInforme o valor pago: ");
-                                scanf("%f", clientes[idx].valor_Recebido);
+                                scanf("%f", &valor_Recebido);
+                                clientes[idx].valor_Recebido = valor_Recebido;
                             } while (clientes[idx].valor_Recebido < clientes[idx].total_final);
 
                             clientes[idx].situacao_Do_pagamento = 'f';
