@@ -68,11 +68,6 @@ int main()
     Cadastrar_Produtos *pt_Produtos = NULL;
     int quantidade = 0;
 
-    //declarando pra poder usar o carrinho no programa todo
-    //ItemCarrinho *carrinho = NULL;
-    //int qtditens = 0;
-    //float totalCompra = 0.0;
-
     printf("\tMENU PRINCIPAL\n\n");
     printf("1-Cadastrar\n2-Vendas\n");
     scanf("%d", &opcao2);
@@ -494,7 +489,7 @@ void atualizarEstoque(int idProduto, int quantidadeComprada) {
 
     Cadastrar_Produtos temp;
 
-    while (fscanf(arquivoOriginal, "%d;%[^;];%d;%f;%f;%d;%d\n",
+    while (fscanf(arquivoOriginal, "%d;%[^;];%d;%f;%f;%d;%d",
                   &temp.id,
                   temp.descricao_Produto,
                   &temp.categoria_Produto,
