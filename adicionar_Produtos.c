@@ -1,708 +1,1576 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
+#include <math.h>
+#include <time.h> // biblioteca para utilizar hora atual
 
-#define max_caracter 100      //max de caracter para a descrição
-#define ARQUIVO "cadastrar&vendas.txt"  //renomeando o arquivo que vai ser valvo
-#define COMPRAS "vendas.txt"    //criando um novo arquivo para salvar as compras de cada cliente;
-#define TEMP "temp.txt"
+// definição de constantes
+#define TAM 50
+#define MAX_CAT 3
 
-typedef struct
-{
-    int id;
-    char descricao_Produto[max_caracter];
-    int categoria_Produto;
-    float Preco_De_Compra;
-    float Preco_De_Venda;
-    int Quantidade_em_Estoque;
-    int estoque_Minimo;
-}Cadastrar_Produtos;
+// Declaração das structs
+typedef struct { // struct para cadastro de produtos
+    int Cod;
+    char descricaoProd[TAM];
+    char Categoria[TAM];
+    float precoCompra;
+    float percentLucro;
+    float precoVenda;
+    int estoqueMinimo;
+    int Estoque;
+} cadProdutos;
 
-typedef struct
-{
-    int id_produto;
-    char descricao[max_caracter];
-    float preco_unitario;
-    int quantidade;
-    float subtotal;
-} ItemCarrinho;
+typedef struct { // struct que armazena informações dos itens vendidos para o carrinho
+    int Codigo;
+    int codC;
+    int Quantidade;
+    int cpf;
+    char Descricao[TAM];
+    char nomeC[TAM];
+    float precoItem;
+    float precoTotal;
+} vendaProdutos;
 
-typedef struct
-{
-    ItemCarrinho *itens;
-    int qtd_itens;
-    int ID_Cliente;
-    float total_final;
-    char categoria_Pagamento;
-    int num_Venda;
-    char situacao_Do_pagamento;
-    float valor_Recebido;
-}Carrinho;
+typedef struct { // struct para armazenar informações da venda
+    int numVenda;
+    float valorPago;
+    char tipoVenda;
+    int codCliente;
+    char nomeCliente[TAM];
+    int cpf;
+} relatVendas;
 
-Carrinho *clientes = NULL;
-int qtd_clientes = 0;
-int idx;
+typedef struct{ // struct para cadastro de clientes
+int codigo;
+int cpf;
+int Nrua;
+int Ncelular;
+char nome[TAM];
+char nomeS[TAM];
+char rua [TAM];
+char bairro[TAM];
+}cadcliente;
 
-void pular_Linha()
-{
-    printf("\n");
-}
-void cadastrar_Informacao_Produtos(Cadastrar_Produtos *pt);
-void salvar_Produtos_Arquivo(Cadastrar_Produtos *pt, FILE *arquivo);
-void listar_Produtos();
-void mostrar_Produtos_Compra();
-void venda_de_Produtos();
-void atualizarEstoque(int idProduto, int quantidadeComprada);
-void nota_E_Desconto();
-void nota_fiscal();
-void salvar_Compra();
-void pagamento();
+/*typedef struct{ // struct para guardar informações da venda
+    char nome[TAM];
+    int codCliente;
+    int cpf;
+    int vendaNum;
+    float pag;
+    char vendaTipo;
 
-int main()
-{
-    setlocale(LC_ALL, "Portuguese");
+} Vendas;*/
 
-    int opcao, opcao2, opcao3;
-    Cadastrar_Produtos *pt_Produtos = NULL;
-    int quantidade = 0;
+// Declaração de structs e variáveis globais
+cadcliente atualizarC;
+cadcliente *cliente;
+cadProdutos *produtos = NULL;
+vendaProdutos *carrinho;
+relatVendas *infoVendas;
+//Vendas *relatorioV;
 
-    printf("\tMENU PRINCIPAL\n\n");
-    printf("1-Cadastrar\n2-Vendas\n");
-    scanf("%d", &opcao2);
-    printf("\n\n");
-    getchar();
+float totalCompra = 0, inicioCx = 0, caixa = 0, caixa_cartao = 0, fatDinheiro = 0, valorSangria = 0, fatTotal = 0;
+int qtdProdutos, qtd_Carrinho = 0, qtdVendas , tcad = 0, numeroVend = 0, qtd_Compra = 0;
 
-    switch (opcao2)
-    {
+// Declaração das funções
+void menuPrincipal();
+int menuCadastros(int espaco);
+int cadastro_clientes();
+int Cadastro_Estoque();
+void atualizaEstoque();
+void atualizaPreco();
+void menuVendas(int espaco);
+float vendas(int espaco);
+void carregaCarrinho();
+int gravarProdutos();
+int gravarClientes();
+int gravarVendas();
+int lerProdutos();
+int lerClientes();
+int lerVendas();
+void ordenarProdutos();
+void Sangria();
+void aberturaCaixa();
+void fechamento_caixa();
+void facaPagamento(int espaco);
+char pagDinheiro(float total ,char metodoPag, int espaco);
+char pagCartao(float total, char metodoPag, int espaco);
+char divisaoPag(float troco, char metodoPag, int espaco, float dinheiro);
+void menuRelatorios();
+void relatorioClientes();
+void relatorioProdutos();
+void relatorioVendas();
+void vendasAbertas(int espaco);
+void sair();
+
+int main() {
+    setlocale(LC_ALL, "portuguese"); // define a linguagem do sistema para português
+    //struct tm *infoTempo; // padrão da biblioteca time.h - struct com informações para conseguimos hora e  data
+
+    int op_Menu = 0;
+    int espaco = 1;
+
+    //time(&tempo_atual); // Obter o tempo atual
+   // info_tempo = localtime(&tempo_atual);// Converter o tempo atual para uma estrutura tm local
+
+    do {
+        system("cls");
+        menuPrincipal();
+        printf("\n\nInforme a opção desejada: ");
+        scanf("%d", &op_Menu);
+        switch(op_Menu) {
         case 1:
-            do
-            {
-                printf("\n======= MENU =======\n");
-                printf("1. Cadastrar Produto\n");
-                printf("2. Listar Produtos\n");
-                printf("0. Sair\n");
-                printf("Escolha uma opção: ");
-                scanf("%d", &opcao);
-                getchar(); // Limpa buffer
+            menuCadastros(espaco);
+        break;
+        case 2:
+            menuVendas(espaco);
+        break;
+        case 3:
+            aberturaCaixa();
+        break;
+        case 4:
+            fechamento_caixa();
+        break;
+        case 5:
+            menuRelatorios();
+        break;
+        case 6:
 
-                switch(opcao)
-                {
-                    case 1:
-                        //Aqui usei realloc para sempre termos memória e espaço no "deposito" e não passar por cima do estoque antigo
-                        pt_Produtos = realloc(pt_Produtos, (quantidade + 1) * sizeof(Cadastrar_Produtos));
-                        if(pt_Produtos == NULL)
-                        {
-                            printf("erro ao alocar memória!!!\n");
-                            return  1;
+            sair();
+        default:
+            printf("\nOpção inválida!\n");
+            system("pause");
+        break;
+        }
+    } while (op_Menu != 6);
+
+    return 0;
+}
+
+void menuPrincipal() {
+    printf("\n--- MERCEARIA DONA BERÊ ----\n");
+    printf("\n============================");
+    printf("\n| [1] CADASTROS            |");
+    printf("\n----------------------------");
+    printf("\n| [2] VENDAS               |");if (qtd_Carrinho > 0){printf("  º");}
+    printf("\n----------------------------");
+    printf("\n| [3] ABERTURA DE CAIXA    |");
+    printf("\n----------------------------");
+    printf("\n| [4] FECHAMENTO DE CAIXA  |");
+    printf("\n----------------------------");
+    printf("\n| [5] RELATÓRIOS           |");
+    printf("\n----------------------------");
+    printf("\n| [6] SAIR                 |");
+    printf("\n============================\n");
+}
+
+int menuCadastros(int espaco) { // Mostra as opções de cadastro
+    int op_menuCad = 0; // variável para controlar a opção escolhida
+
+    while (op_menuCad != 3) {
+        system("cls");
+        printf("\n----------- CADASTROS -----------\n\n");
+        printf("=================================\n");
+        printf("| [1] CLIENTES                  |\n");
+        printf("---------------------------------\n");
+        printf("| [2] PRODUTOS                  |\n");
+        printf("---------------------------------\n");
+        printf("| [3] VOLTAR AO MENU PRINCIPAL  |\n");
+        printf("=================================\n\n");
+
+        printf("Informe a opção desejada: ");
+        scanf("%d", &op_menuCad);
+
+        switch(op_menuCad) {
+        case 1:
+            cadastro_clientes(); // chamada da função para cadastro de clientes
+            break;
+        case 2:
+            Cadastro_Estoque(espaco); // chamada da função para cadastrar produtos
+            break;
+        case 3:
+            return 0; // retorna ao menu
+            break;
+        default:
+            printf("\nOpção inválida!\n");
+            system("pause");
+            break;
+        }
+    }
+    return 0;
+}
+
+int cadastro_clientes(){
+    int i , ver , ncad = 0 , op_cliente , mudar , cliente_encontrado = 0;
+    char continua = 's', altclienteC;
+
+    tcad = lerClientes();
+
+
+    system("cls");
+    printf("\n----- CADASTROS CLIENTES-----\n");
+    printf("=================================\n");
+    printf("| [1] CADASTRAR CLIENTES        |\n");
+    printf("---------------------------------\n");
+    printf("| [2] ATUALIZAR CLIENTES        |\n");
+    printf("---------------------------------\n");
+    printf("| [3] SAIR                      |\n");;
+    printf("=================================\n\n");
+    printf("Selecione a opção desejada: ");
+    scanf("%d", &op_cliente);
+
+    switch(op_cliente) {
+        case 1:
+
+
+            system("cls");
+            printf("\n--------- CADASTRO DE CLIENTES ---------\n\n");
+            printf("QUANTIDADE DE CLIENTES CADASTRADOS: %d\n\n", tcad);
+            printf("\t ...::informe quantos clientes serao cadastrados::...\n\n");
+            scanf("%d",&ncad);
+            for(i=0;i<ncad;i++){
+
+                printf("\n- Informe o código do cliente %03d :", i + 1);
+                scanf("%d", &cliente[i].codigo);
+                fflush(stdin);//limpa o buffer
+                printf("- Informe o nome completo do cliente %03d :", i + 1);
+                fgets(cliente[i].nome, sizeof(cliente[i].nome), stdin);
+                cliente[i].nome[strcspn(cliente[i].nome, "\n")] = '\0';
+                printf("- Informe o nome social do cliente %03d :", i + 1);
+                fgets(cliente[i].nomeS, sizeof(cliente[i].nomeS), stdin);
+                cliente[i].nomeS[strcspn(cliente[i].nomeS, "\n")] = '\0';
+                printf("- Informe o CPF do cliente %03d :", i + 1);
+                scanf("%d", &cliente[i].cpf);
+                fflush(stdin);
+                printf("- Informe a rua do cliente %03d :", i + 1);
+                fgets(cliente[i].rua, sizeof(cliente[i].rua), stdin);
+                cliente[i].rua[strcspn(cliente[i].rua, "\n")] = '\0';
+                printf("- Informe o número da rua do cliente %03d :", i + 1);
+                scanf("%d", &cliente[i].Nrua);
+                fflush(stdin);
+                printf("- Informe o bairro do cliente %03d :", i + 1);
+                fgets(cliente[i].bairro, sizeof(cliente[i].bairro), stdin);
+                cliente[i].bairro[strcspn(cliente[i].bairro, "\n")] = '\0';
+                printf("- Informe o celular/whats do cliente %03d :", i + 1);
+                scanf("%d", &cliente[i].Ncelular);
+                fflush(stdin);
+
+            }
+
+            tcad+=ncad;
+            gravarClientes();
+            cadastro_clientes();
+            break;
+        case 2:
+            if(tcad == 0){
+                system("cls");
+                printf("-----------------------------------------");
+                printf("\n NÃO HA NENHUM CLIENTE CADASTRADO!");
+                printf("\n-----------------------------------------\n");
+                system("pause");
+                break;
+            }
+            ordenarClientes();
+            system("cls");
+            printf("\t...::Lista dos clientes cadastrados::...\n\n");
+            printf("\tcodigo\tnome\n");
+            for(int i=0; i<tcad;i++){
+                printf("\t%d \t%s \n",cliente[i].codigo,cliente[i].nome);
+            }
+
+            while (continua == 's' || continua == 'S') {
+            printf("\n- Informe o código da pessoa cadastrada que deseja ver mais informaçoes: ");
+                scanf("%d", &ver);
+                for (int i = 0; i < tcad; i++) {
+                    if (ver == cliente[i].codigo) {
+                        system("cls");
+                        printf("- [1] CODIGO: %d\n",cliente[i].codigo);
+                        printf("- [2] NOME: %s\n",cliente[i].nome);
+                        printf("- [3] NOME SOCIAL: %s\n",cliente[i].nomeS);
+                        printf("- [4] CPF: %d\n",cliente[i].cpf);
+                        printf("- [5] RUA: %s\n",cliente[i].rua);
+                        printf("- [6] NUMERO DA RUA: %d\n",cliente[i].Nrua);
+                        printf("- [7] BAIRRO: %s\n",cliente[i].bairro);
+                        printf("- [8] CELULAR/WHATS: %d\n\n",cliente[i].Ncelular);
+                        printf("- INFORME QUAL INFORMAÇÃO GOSTARIA DE ATUALIZAR:\n");
+                        scanf("%d",&mudar);
+                        switch(mudar){
+                            case 1:
+                                printf("- INFORME QUAL É O NOVO CODIGO: ");
+                                scanf("%d", &atualizarC.codigo);
+                                cliente[i].codigo = atualizarC.codigo;
+                                break;
+                            case 2:
+                                printf("- INFORME QUAL É O NOVO NOME: ");
+                                fflush(stdin);
+                                fgets(atualizarC.nome, sizeof(atualizarC.nome), stdin);
+                                atualizarC.nome[strcspn(atualizarC.nome, "\n")] = '\0';
+                                strcpy(cliente[i].nome, atualizarC.nome);
+                                break;
+                            case 3:
+                                printf("- INFORME QUAL É O NOVO NOME SOCIAL: ");
+                                fflush(stdin);
+                                fgets(atualizarC.nomeS, sizeof(atualizarC.nomeS), stdin);
+                                atualizarC.nomeS[strcspn(atualizarC.nomeS, "\n")] = '\0';
+                                strcpy(cliente[i].nomeS, atualizarC.nomeS);
+                                break;
+                            case 4:
+                                printf("- INFORME QUAL É O NOVO CPF: ");
+                                scanf("%d", &atualizarC.cpf);
+                                cliente[i].cpf = atualizarC.cpf;
+                                break;
+                            case 5:
+                                printf("- INFORME QUAL É O NOVO NOME DA RUA: ");
+                                fflush(stdin);
+                                fgets(atualizarC.rua, sizeof(atualizarC.rua), stdin);
+                                atualizarC.rua[strcspn(atualizarC.rua, "\n")] = '\0';
+                                strcpy(cliente[i].rua, atualizarC.rua);
+                                break;
+                            case 6:
+                                printf("- INFORME QUAL É O NOVO NUMERO DA RUA: ");
+                                scanf("%d", &atualizarC.Nrua);
+                                cliente[i].Nrua = atualizarC.Nrua;
+                                break;
+                            case 7:
+                                printf("- INFORME QUAL É O NOVO BAIRRO: ");
+                                fflush(stdin);
+                                fgets(atualizarC.bairro, sizeof(atualizarC.bairro), stdin);
+                                atualizarC.bairro[strcspn(atualizarC.bairro, "\n")] = '\0';
+                                strcpy(cliente[i].bairro, atualizarC.bairro);
+                                break;
+                            case 8:
+                                printf("- INFORME QUAL É O NOVO NUMERO/WHATS: ");
+                                scanf("%d", &atualizarC.Ncelular);
+                                cliente[i].Ncelular = atualizarC.Ncelular;
+                                break;
+                            default:
+                                printf("Opção inválida!\n");
+                                break;
                         }
-
-                        cadastrar_Informacao_Produtos(&pt_Produtos[quantidade]);
-
-                        FILE *arquivo = fopen(ARQUIVO, "a+");
-                        if(arquivo == NULL)
-                        {
-                            printf("ERRO AO ABRIR O ARQUIVO!!!\n");
-                            return 1;
-                        }
-
-                        salvar_Produtos_Arquivo(&pt_Produtos[quantidade], arquivo);
-                        fclose(arquivo);
-
-                        quantidade++;
-                        break;
-
-                    case 2:
-                        listar_Produtos();
-                        break;
-
-                    case 3:
-                        printf("SAINDA DA PROGRAMA...\n");
-                        break;
-
-                    default:
-                        printf("Opcao invalida!!!\n");
-                        break;
+                    }
                 }
 
-            }while(opcao != 3);
+                printf("\n\nDeseja ver os detalhes de mais algum cliente? [S/N]: ");
+                getchar();
+                scanf("%c", &continua);
+            }
+
+
+        gravarClientes();
+        break;
+        case 3:
+            printf("Voltando ao menu principal...\n");
             break;
 
-        case 2:
-            do
-            {
+        default:
+            printf("\nOpção inválida!\n");
+            system("pause");
+            break;
+        }
+}
+/*
+    Função para cadastrar novos produtos, recupera os registros do arquivo binario e aloca na struct cadProdutos produtos.
+    Também é capaz atualizar o estoque do produto escolhido
+*/
+int Cadastro_Estoque(int espaco) {
 
-            printf("\tÁREA  DE VENDAS\n");
-            printf("========================\n");
-            printf("21 - NOVA VENDA\n22 - RETIRANDA DE CAIXA(SANGUIA)\n23 - PAGAMENTO\n24 - RETORNAR OA MENU PRÍNCIPAL\n");
-            scanf("%d", &opcao3);
-            getchar();
+    int op_estoque = 0;
+    char continuar = 's';
+    char continua = 's';
 
-            switch (opcao3)
-            {
-                case 21:
-                    venda_de_Produtos();
-                    nota_E_Desconto();
+    qtdProdutos = lerProdutos(); // chama a função responsável por fazer a leitra do arquivo com registro dos produtos
+    if (qtdProdutos > 0) { // se houver registros no arquivo qtdProdutos será maior que 0, então espaco recebe o valor de qtd produtos
+        espaco = qtdProdutos;
+    } else {
+        espaco = 1;
+        produtos = (cadProdutos *)malloc(espaco * sizeof(cadProdutos)); // se não, a alocação inicial é feita aqui
+        if (produtos == NULL) { // testa se memória foi alocada corretamente
+            printf("Erro ao alocar memória.\n");
+            exit(1);
+        }
+    }
+    while (op_estoque != 4) {
+        system("cls");
+        printf("\n----- CADASTRO DE PRODUTOS -----");
+        printf("\n================================");
+        printf("\n| [1] CADASTRAR PRODUTOS       |");
+        printf("\n--------------------------------");
+        printf("\n| [2] ATUALIZAR ESTOQUE        |");
+        printf("\n--------------------------------");
+        printf("\n| [3] ATUALIZAR PREÇO DE VENDA |");
+        printf("\n--------------------------------");
+        printf("\n| [4] VOLTAR AO MENU           |");
+        printf("\n================================\n\n");
+        printf("Selecione a opção desejada: ");
+        scanf("%d", &op_estoque);
 
-                break;
+        switch(op_estoque) {
+        case 1:
+                do {
+                if (qtdProdutos == espaco) {
+                    espaco *= 5;
+                    cadProdutos *temp = (cadProdutos *)realloc(produtos, espaco * sizeof(cadProdutos));
+                    if (temp == NULL) {
+                        printf("\n !ERRO NA REALOCAÇÃO DE MEMÓRIA!\n");
+                        system("pause");
+                        free(produtos);
+                        exit(1);
+                    }
+                    produtos = temp;
+                }
 
-                case 22:
-                    //retirada de caixa
-                break;
+                cadProdutos *novoProduto = &produtos[qtdProdutos];
 
-                case 23:
-                    pagamento();
-                    //free(carrinho);
-                break;
+                refazer:
+                system("cls");
+                printf("\n--------- CADASTRO DE PRODUTOS ---------\n\n");
+                printf("QUANTIDADE DE PRODUTOS CADASTRADOS: %d\n\n", qtdProdutos);
 
-                case 24:
-                    //volta ao menu anterior
-                break;
+                printf("- Informe o código do produto: ");
+                scanf("%d", &novoProduto->Cod);
+                for (int i=0; i<qtdProdutos; i++){
+                    if(novoProduto->Cod == produtos[i].Cod){
+                        printf("Código já existe\n- Informe um código válido: ");
+                        system("pause");
+                        goto refazer;
+                    }
+                }
+                printf("- Informe a descrição do produto: ");
+                fflush(stdin);
+                fgets(novoProduto->descricaoProd, sizeof(novoProduto->descricaoProd), stdin);
+                novoProduto->descricaoProd[strcspn(novoProduto->descricaoProd, "\n")] = '\0';
+                printf("- Informe a categoria do produto: ");
+                fflush(stdin);
+                fgets(novoProduto->Categoria, sizeof(novoProduto->Categoria), stdin);
+                novoProduto->Categoria[strcspn(novoProduto->Categoria, "\n")] = '\0';
+                printf("- Informe o preço de compra do produto (unidade): R$");
+                scanf("%f", &novoProduto->precoCompra);
+                printf("- Informe a margem de lucro desejada: ");
+                scanf("%f", &novoProduto->percentLucro);
+                printf("- Informe a quantidade de produtos: ");
+                scanf("%d", &novoProduto->Estoque);
+                printf("- Informe a quantidade mínima permitida em estoque: ");
+                scanf("%d", &novoProduto->estoqueMinimo);
+                novoProduto->percentLucro /= 100;
+                novoProduto->precoVenda = novoProduto->precoCompra + (novoProduto->precoCompra * novoProduto->percentLucro);
+                qtdProdutos++;
 
-                default:
-                break;
-            }
-            } while (opcao3 != 24);
+                printf("\nDeseja cadastrar mais algum produto [S/N]?\n");
+                scanf(" %c", &continuar);
+                printf("\n\n");
+                system("pause");
 
+            } while (continuar == 's' || continuar == 'S');
+            gravarProdutos();
+        break;
+        case 2: // atualização de estoque
+            atualizaEstoque();
+            gravarProdutos();
+        break;
+        case 3: // atualizar preço de venda
+            atualizaPreco();
+            gravarProdutos();
+        break;
+        case 4:
+            return 0;
         break;
         default:
-            printf("OPÇÃO INVALIDA!!!\n\n");
+            printf("\nOpção inválida!\n");
+            system("pause");
+        break;
+        }
+    }
+    free(produtos);
+    return 0;
+}
+
+void atualizaPreco(){
+
+    char continua = 's', alterarVcompra = 's';
+    int itemPreco = 0;
+    float novoPreco = 0, precoCompra = 0;
+
+    system("cls");
+    printf("\n------------------------ PRODUTOS CADASTRADOS ------------------------\n\n");
+    printf("| CÓDIGO |      DESCRIÇÃO      |  CATEGORIA  | PREÇO VENDA | ESTOQUE |\n");
+    printf("----------------------------------------------------------------------\n");
+    for (int i = 0; i < qtdProdutos; i++) { // percore os produtos cadastrados
+        printf("| %-6d | %-19s | %-11s | R$%-9.2f | %-7d |\n", produtos[i].Cod, produtos[i].descricaoProd, produtos[i].Categoria, produtos[i].precoVenda, produtos[i].Estoque);
+    }
+
+    while (continua == 's' || continua == 'S') {
+        printf("\nInforme o código do item que deseja atualizar o preço: ");
+        scanf("%d", &itemPreco);
+        // percorre os produtos cadastrados até encontrar o código digitado
+        for (int i = 0; i < qtdProdutos; i++) {
+            if (itemPreco == produtos[i].Cod) {
+                printf("\n- ITEM: %s\n", produtos[i].descricaoProd);
+                printf("- PREÇO ATUAL: R$%.2f\n\n", produtos[i].precoVenda);
+                printf("- Deseja alterar o preço de compra do produto? ");
+                getchar();
+                scanf(" %c", &alterarVcompra);
+                if(alterarVcompra == 's' || alterarVcompra == 'S'){
+                    printf("\nInforme o novo preço de compra do produto: R$");
+                    scanf("%f", &precoCompra);
+                }
+                else {
+                    precoCompra = produtos[i].precoCompra;
+                }
+                printf("\nInforme a nova porcentagem de lucro que deseja obter: ");
+                scanf("%d", &novoPreco);
+                produtos[i].precoVenda = precoCompra + (precoCompra * novoPreco);
+            }
+        }
+        printf("\nPreço de venda atualizado com sucesso!");
+        printf("\n\nDeseja atualizar mais algum item? [S/N]:");
+        getchar();
+        scanf(" %c", &continua);
+        printf("\n\n");
+    }
+    //gravarProdutos();
+    //free(produtos);
+
+}
+
+void atualizaEstoque(){
+
+    int item = 0, novoEstoque = 0;
+    char continua = 's';
+
+    system("cls");
+    printf("\n------------------------ PRODUTOS CADASTRADOS ------------------------\n\n");
+    printf("| CÓDIGO |      DESCRIÇÃO      |  CATEGORIA  | PREÇO VENDA | ESTOQUE |\n");
+    printf("----------------------------------------------------------------------\n");
+    for (int i = 0; i < qtdProdutos; i++) { // percore os produtos cadastrados
+        printf("| %-6d | %-19s | %-11s | R$%-9.2f | %-7d |\n", produtos[i].Cod, produtos[i].descricaoProd, produtos[i].Categoria, produtos[i].precoVenda, produtos[i].Estoque);
+    }
+
+    while (continua == 's' || continua == 'S') {
+        printf("\nInforme o código do item que deseja atualizar o estoque: ");
+        scanf("%d", &item);
+        // percorre os produtos cadastrados até encontrar o código digitado
+        for (int i = 0; i < qtdProdutos; i++) {
+            if (item == produtos[i].Cod) {
+                printf("\n- ITEM: %s\n\n", produtos[i].descricaoProd);
+                printf("Informe a nova quantidade de itens no estoque: ");
+                scanf("%d", &novoEstoque);
+                produtos[i].Estoque = novoEstoque;// altera a quantidade de estoque na struct
+            }
+        }
+        printf("\nEstoque atualizado com sucesso!");
+        printf("\n\nDeseja atualizar mais algum item? [S/N]:");
+        getchar();
+        scanf(" %c", &continua);
+        printf("\n\n");
+    }
+    //gravarProdutos(); // grava as alterações em arquivo
+    //free(produtos); // libera a memória alocada
+}
+
+// Função responsável por gravar os produtos cadastrados em arquivo binario
+int gravarProdutos(){
+    FILE *arquivoProd = fopen("produtos.dat", "wb"); // abertura do arquivo binario
+    if (arquivoProd == NULL){ // testa se o arquivo foi aberto
+        printf("Erro ao abrir arquivo!\n");
+        system("pause");
+        return 0;
+    }
+    fwrite(&qtdProdutos, sizeof(int), 1, arquivoProd); // escreve a quantidade de produtos no arquivo
+    fwrite(produtos, sizeof(cadProdutos), qtdProdutos, arquivoProd); // grava os produtos
+    fclose(arquivoProd); // fecha o arquivo
+    return 0;
+}
+
+int gravarClientes() {
+    FILE *arquivo = fopen("clientes.dat", "wb"); // abre o arquivo binário para escrita
+    if (arquivo == NULL) { // verifica se o arquivo foi aberto corretamente
+        printf("Erro ao abrir arquivo!\n");
+        system("pause");
+        return 0;
+    }
+    fwrite(&tcad, sizeof(int), 1, arquivo); // escreve a quantidade de clientes no arquivo
+    fwrite(cliente, sizeof(cadcliente), tcad, arquivo); // grava os clientes no arquivo
+    fclose(arquivo); // fecha o arquivo
+    return 0;
+}
+
+int gravarVendas() {
+    FILE *arquivoVendas = fopen("vendas.dat", "wb"); // abre o arquivo binário para escrita
+    if (arquivoVendas == NULL) { // verifica se o arquivo foi aberto corretamente
+        printf("Erro ao abrir arquivo!\n");
+        system("pause");
+        return 0;
+    }
+    fwrite(&qtdVendas, sizeof(int), 1, arquivoVendas); // escreve a quantidade de clientes no arquivo
+    fwrite(infoVendas, sizeof(relatVendas), qtdVendas, arquivoVendas); // grava os clientes no arquivo
+    fclose(arquivoVendas); // fecha o arquivo
+    return 0;
+}
+
+// função para a leitura dos registros no arquivo
+int lerProdutos() {
+    FILE *arquivoProd;
+    int capacidade, i=0;
+
+    arquivoProd = fopen("produtos.dat", "rb"); // abre o arquivo
+
+    if (arquivoProd == NULL) { // testa se arquivo existe
+        system("cls");
+        printf("... Criando novo arquivo ...\n\n");
+        qtdProdutos = 0;
+        system("pause");
+        return 0; // Retorna 0 indicando falha ao abrir o arquivo
+    }
+
+    fread(&qtdProdutos, sizeof(int), 1, arquivoProd); // lê a quantidade de produtos
+
+    if (qtdProdutos == 0) { // testa se há registros no arquivo
+        fclose(arquivoProd);
+        printf("Não foi possível recuperar os registros arquivados\n");
+        return 0; // Retorna 0 indicando falha ao ler a quantidade de produtos
+    }
+    // Aloca memória para receber os registros recuperados na struct de cadastro de produtos
+    produtos = (cadProdutos *)malloc(qtdProdutos * sizeof(cadProdutos));
+    if (produtos == NULL) {
+        fclose(arquivoProd);
+        printf("Não foi possível alocar memória para os registros arquivados\n");
+        return 0; // Retorna 0 indicando falha ao alocar memória
+    }
+
+    while (!feof(arquivoProd) && i < qtdProdutos) { // faz a leitura de cada item até chegar ao fim do arquivo
+        fread(&produtos[i], sizeof(cadProdutos), 1, arquivoProd); // lê cada produto
+        i++;
+    }
+
+    capacidade = qtdProdutos;
+    fclose(arquivoProd); // fecha o arquivo
+    return capacidade;
+}
+
+int lerClientes() {
+    FILE *arquivo;
+    int cadastrados, i = 0;
+
+    arquivo = fopen("clientes.dat", "rb"); // abre o arquivo binário para leitura
+    if (arquivo == NULL) { // verifica se o arquivo foi aberto corretamente
+        system("cls");
+        printf("... Criando novo arquivo ...\n\n");
+        tcad = 0;
+        system("pause");
+        return 0; // retorna 0 indicando falha ao abrir o arquivo
+    }
+
+    fread(&tcad, sizeof(int), 1, arquivo); // lê a quantidade de clientes do arquivo
+    if (tcad == 0) { // verifica se há registros no arquivo
+        fclose(arquivo);
+        printf("Não foi possível recuperar os registros arquivados\n");
+        return 0; // retorna 0 indicando falha ao ler a quantidade de clientes
+    }
+
+    cliente = (cadcliente *)malloc(tcad * sizeof(cadcliente));
+    if (cliente == NULL) {
+        fclose(arquivo);
+        printf("Não foi possível alocar memória para os registros arquivados\n");
+        return 0; // Retorna 0 indicando falha ao alocar memória
+    }
+
+    while (!feof(arquivo) && i < tcad) { // lê cada cliente do arquivo
+        fread(&cliente[i], sizeof(cadcliente), 1, arquivo);
+        i++;
+    }
+
+    cadastrados = tcad;
+    fclose(arquivo); // fecha o arquivo
+    return cadastrados;
+}
+
+int lerVendas() {
+    FILE *arquivoVendas;
+    int capacidade, i=0;
+
+    arquivoVendas = fopen("vendas.dat", "rb"); // abre o arquivo
+
+    if (arquivoVendas == NULL) { // testa se arquivo existe
+        system("cls");
+        printf("... Criando novo arquivo ...\n\n");
+        qtdVendas = 0;
+        system("pause");
+        return 0; // Retorna 0 indicando falha ao abrir o arquivo
+    }
+
+    fread(&qtdVendas, sizeof(int), 1, arquivoVendas); // lê a quantidade de produtos
+
+    if (qtdVendas == 0) { // testa se há registros no arquivo
+        fclose(arquivoVendas);
+        printf("Não foi possível recuperar os registros arquivados\n");
+        return 0; // Retorna 0 indicando falha ao ler a quantidade de produtos
+    }
+    // Aloca memória para receber os registros recuperados na struct de cadastro de produtos
+    infoVendas = (relatVendas *)malloc(qtdVendas * sizeof(relatVendas));
+    if (infoVendas == NULL) {
+        fclose(arquivoVendas);
+        printf("Não foi possível alocar memória para os registros arquivados\n");
+        return 0; // Retorna 0 indicando falha ao alocar memória
+    }
+
+    while (!feof(arquivoVendas) && i < qtdVendas) { // faz a leitura de cada item até chegar ao fim do arquivo
+        fread(&infoVendas[i], sizeof(relatVendas), 1, arquivoVendas); // lê cada produto
+        i++;
+    }
+
+    numeroVend = qtdVendas; // atualiza número venda
+    capacidade = qtdVendas;
+    fclose(arquivoVendas); // fecha o arquivo
+    return capacidade;
+}
+
+
+void ordenarProdutos () {
+
+    cadProdutos prodtemp;
+
+    // Algoritmo de ordenação por bolha - ordena os produtos pela categoria
+    for(int i = 0; i < qtdProdutos - 1; i++) {
+        for(int j = 0; j < qtdProdutos - i - 1; j++) {
+            if (strcmp(produtos[j].Categoria, produtos[j + 1].Categoria) > 0) {
+                // Troca produtos[j] e produtos[j + 1]
+                prodtemp = produtos[j];
+                produtos[j] = produtos[j + 1];
+                produtos[j + 1] = prodtemp;
+            }
+        }
+    }
+}
+
+void ordenarClientes() {
+
+    cadcliente clienttemp;
+    // ordena os clientes por nome
+    for(int i = 0; i < tcad - 1; i++) {
+        for(int j = 0; j < tcad - i - 1; j++) {
+            if (strcmp(cliente[j].nome, cliente[j + 1].nome) > 0) {
+                // Troca cliente[j] e cliente[j + 1]
+                clienttemp = cliente[j];
+                cliente[j] = cliente[j + 1];
+                cliente[j + 1] = clienttemp;
+            }
+        }
+    }
+}
+
+// Função que mostra as opções em vendas
+void menuVendas(int espaco) {
+    int op_vendas = 0;
+
+    // testa se o caixa foi aberto
+    if (inicioCx == 0) {
+        system("cls");
+        printf("-----------------------------------------");
+        printf("\n\t OPERAÇÃO INVÁLIDA!\t");
+        printf("\n É NECESSÁRIO INICIALIZAR CAIXA PRIMEIRO");
+        printf("\n-----------------------------------------\n");
+        system("pause");
+        return;
+    }
+
+    while(op_vendas != 4){
+
+        system("cls");
+        printf("\n----------- VENDAS -----------\n\n");
+        printf("================================\n");
+        printf("| [1] NOVA VENDA               |\n");
+        printf("--------------------------------\n");
+        printf("| [2] RETIRADA DE CAIXA        |\n");
+        printf("--------------------------------\n");
+        printf("| [3] PAGAMENTOS               |\n");
+        printf("--------------------------------\n");
+        printf("| [4] CARRINHO                 |");if (qtd_Carrinho > 0){printf("  º");} // indica se há produtos no carrinho
+        printf("\n--------------------------------\n");
+        printf("| [5] VOLTAR AO MENU PRINCIPAL |\n");
+        printf("================================\n\n");
+
+        printf("Selecione a opção desejada: ");
+        getchar();
+        scanf("%d", &op_vendas);
+
+        switch(op_vendas) {
+        case 1:
+            lerProdutos(); // faz a leitura do arquivo
+            ordenarProdutos();
+            //lerClientes();
+            totalCompra = vendas(espaco); // função de vendas
+        break;
+        case 2:
+            Sangria(); // Função de retirada de caixa
+        break;
+        case 3:
+            //lerProdutos();
+            facaPagamento(espaco); // função para pagamento
+            gravarVendas();
+        break;
+        case 4:
+            system("cls");
+            carregaCarrinho(); // mostra os itens no carrinho
+            system("pause");
+        case 5:
+            return;
+        default:
+            printf("\nOpção inválida!\n");
+            system("pause");
+            break;
+        }
+    }
+}
+
+float vendas(int espaco) {
+
+    int cod_Compra = 0, encontrado = 0, vendaCliente = 0, codCliente = 0;
+    char continua = 's', cont_Compra = 's';
+
+    carrinho = (vendaProdutos *)malloc(espaco * sizeof(vendaProdutos)); // Alocação inicial de memória da struct carrinho
+        if (carrinho == NULL) {
+            printf("Erro ao alocar memória.\n");
+            system("pause");
+            exit(1);
+        }
+
+    tenteNovamente: // goto
+    while (continua == 's' || continua == 'S'){
+
+        if (qtd_Carrinho == espaco){ //realocação de memoria
+            espaco *= 2;
+            vendaProdutos *temp = (vendaProdutos *)realloc(carrinho, espaco * sizeof(vendaProdutos));
+            if (temp == NULL) {
+                printf("\n !ERRO NA REALOCAÇÃO DE MEMÓRIA!\n");
+                system("pause");
+                free(carrinho);
+                exit(1);
+            }
+        carrinho = temp;
+        }
+
+        // cria novo ponteiro para adicionar informação no ponteiro de struct carrinho
+        // vendaProdutos(struct) *novoItem(Novo pontteiro) = &carrinho(endereço do ponteiro carrinho)[ns posição da var qtd_Carrinho]
+        vendaProdutos *novoItem = &carrinho[qtd_Carrinho];
+
+        system("cls");
+
+        if(qtd_Carrinho == 0){
+            printf("\nDeseja adicionar um cliente à venda?");
+            printf("\n[1] SIM\n[2] NÃO\n");
+            printf("- ");
+            scanf("%d", &vendaCliente);
+            if(vendaCliente == 1){
+                printf("\n---------------------------------------\n");
+                printf("\n| CÓDIGO |           CLIENTE          |");
+                printf("\n---------------------------------------\n");
+                for(int i=0; i<tcad; i++){
+                    printf("| %-6d | %-26s |\n", cliente[i].codigo, cliente[i].nome);
+                }
+                printf("\n\n- Informe o código do cliente: ");
+                scanf("%d", &codCliente);
+                for(int i=0; i<tcad; i++){
+                    if(cliente[i].codigo == codCliente){
+                        printf("\n- Cliente: %s", cliente[i].nome);
+                        strcpy(novoItem->nomeC, cliente[i].nome);
+                        novoItem->codC = cliente[i].codigo;
+                        novoItem->cpf = cliente[i].cpf;
+                    }
+                }
+            }
+            else{
+                novoItem->codC = 1;
+                strcpy(novoItem->nomeC, "CONSUMIDOR FINAL");
+                novoItem->cpf = 0;
+            }
+        }
+
+        system("cls");
+        printf("\n------------------------------ PRODUTOS ------------------------------\n\n");
+        printf("| CÓDIGO |      DESCRIÇÃO      |  CATEGORIA  | PREÇO VENDA | ESTOQUE |\n");
+        printf("----------------------------------------------------------------------\n");
+        for (int i = 0; i < qtdProdutos; i++) {
+            printf("| %-6d | %-19s | %-11s | R$%-9.2f | %-7d |\n", produtos[i].Cod, produtos[i].descricaoProd, produtos[i].Categoria, produtos[i].precoVenda, produtos[i].Estoque);
+        }
+
+        printf("\nInforme o código do produto desejado: ");
+        getchar();
+        scanf("%d", &cod_Compra);
+
+        for (int i = 0; i < qtdProdutos; i++){
+            if(cod_Compra == 0){
+                return 0;
+            }
+            if (cod_Compra == produtos[i].Cod){
+                encontrado = 1; // modifica o valor da variável em caso do item encontrado
+                printf("\n- ITEM: %s\n", produtos[i].descricaoProd);
+                printf("\nInforme a quantidade desejada: ");
+                getchar();
+                scanf("%d", &qtd_Compra);
+                if (qtd_Compra > produtos[i].Estoque){ // verifica se a quantidade adicionada no carrinho é maior do que o estoque do produto
+                    printf("\nQuantidade selecionada maior que quantidade em estoque.\n Deseja continuar? [S/N]: ");
+                    scanf(" %c", &cont_Compra);
+                    if(cont_Compra == 'n' || cont_Compra == 'N'){ // cancela a operação caso dona Berê não queira continar com a compra
+                        printf("\nOperação cancelada!\n");
+                        break; // sai do laço
+                    }
+                }
+                if (produtos[i].Estoque <= produtos[i].estoqueMinimo){ // verifica se produto atingiu o estoque minimo
+                    printf("\n! ATENÇÃO, PRODUTO ATINGIU O ESTOQUE MINÍMO !\n");
+                }
+                if (produtos[i].Estoque <= 0){ // verifica se a qtd adicionada no carrinho é maior que o estoque disponível
+                    printf("\nProduto com estoque zerado!\n Deseja continuar? [S/N]: ");
+                    fflush(stdin);
+                    scanf(" %c", &cont_Compra);
+                    if(cont_Compra == 'n' || cont_Compra == 'N');{ // cancela a operação caso dona Berê não queira continar com a compra
+                        printf("\nOperação cancelada\n");
+                        system("pause");
+                        break;
+                    }
+                }
+                produtos[i].Estoque -= qtd_Compra;
+                // Grava na struct carrinho os dados dos produtos selecionados na hora da compra
+                novoItem->Codigo = produtos[i].Cod;
+                strcpy(novoItem->Descricao, produtos[i].descricaoProd);
+                novoItem->precoItem = produtos[i].precoVenda;
+                novoItem->Quantidade = qtd_Compra;
+                novoItem->precoTotal = produtos[i].precoVenda * qtd_Compra;
+
+                totalCompra += (produtos[i].precoVenda * qtd_Compra);
+            }
+        }
+        if (encontrado == 0){ // caso produto não seja encontrado
+            printf("\nProduto não encontrado, tente novamente.\n\n");
+            system ("pause");
+            goto tenteNovamente;
+        }
+        qtd_Carrinho++;
+        printf("\nTOTAL: %.2f\n\n", totalCompra);
+        printf("\n\nDeseja adicionar mais algum item no carrinho? [S/N]: ");
+        fflush(stdin);
+        scanf(" %c", &continua);
+    }
+    system("cls");
+    if (cont_Compra != 'n' || cont_Compra != 'N'){
+        carregaCarrinho();
+    }
+    printf("\n\nO total da compra é: R$%.2f\n\n", totalCompra);
+    system("pause");
+    gravarProdutos(); // Grava as alterações do estoque
+    free(produtos);
+    return totalCompra;
+}
+
+void carregaCarrinho(){
+    if (qtd_Carrinho == 0) {
+        printf("-----------------------------------------");
+        printf("\n\tO CARRINHO ESTÁ VAZIO!");
+        printf("\n-----------------------------------------\n");
+        return;
+    }
+    printf("\n----------------------------- CARRINHO -------------------------------\n\n");
+    printf("| CÓDIGO |      DESCRIÇÃO      | PREÇO VENDA  | QUANTIDADE |  TOTAL  |\n");
+    printf("----------------------------------------------------------------------\n");
+    for (int i = 0; i < qtd_Carrinho; i++) {
+        printf("| %-6d | %-19s | R$ %-9.2f | %-10d | R$%-3.2f |\n", carrinho[i].Codigo, carrinho[i].Descricao, carrinho[i].precoItem, carrinho[i].Quantidade, carrinho[i].precoTotal);
+    }
+}
+// Função para retirada de dinheiro no caixa
+void Sangria(){
+
+        float valorRetirada = 0;
+        valorSangria = caixa - 50; // a variável recebe o valor em caixa - 50, garantindo que fique 50 para troco
+
+        if (0 >= valorSangria) { // testa se há valor para a retirada
+            system("cls");
+            printf("\n--------------------------------------------------------------------------");
+            printf("\n\tNÃO É POSSIVEL REALIZAR RETIRADA DO CAIXA VALOR INFERIOR A 50!");
+            printf("\n--------------------------------------------------------------------------\n");
+            system("pause");
+            return;
+        }
+        refazer: // goto
+        system("cls");
+        printf("\n-------------- RETIRADA CAIXA --------------\n\n");
+        printf("\n- Valor disponível para retirada (salvo R$50,00 para caixa): R$%.2f", valorSangria);
+        printf("\n- Informe a quantia que deseja retirar: R$");
+        scanf("%f", &valorRetirada);
+
+        if (valorRetirada > valorSangria) { // testa se o valor indicado é maior do que o valor disponível em caixa
+            printf("-----------------------------------------");
+            printf("\nO VALOR DESEJA UTRAPASSA O PERMITIDO !");
+            printf("\n---------------------------------------\n");
+            system("pause");
+            goto refazer; // vai ao inicio da função, para refazer
+        }
+        caixa = caixa - valorRetirada; // grava no caixa o valor retirado
+        printf("\n\nValor atual no caixa: R$%.2f\n\n", caixa); // mostra o valor restante
+        system("pause");
+}
+
+void aberturaCaixa(){ // Função para abertura do caixa
+
+        int confirmar = 0;
+
+        if (inicioCx > 0) { // testa se caixa já não foi aberto
+            system("cls");
+            printf("-----------------------------------------");
+            printf("\n\t OPERAÇÃO INVÁLIDA!\t");
+            printf("\n\tO CAIXA JÁ ESTÁ ABERTO!");
+            printf("\n-----------------------------------------\n");
+            system("pause");
+            return;
+        }
+        ajustar:
+        system ("cls");
+        printf("\n--------------- ABERTURA DE CAIXA ---------------\n");
+        printf("\nPOR FAVOR INFORME O VALOR INICIAL NO CAIXA: R$");
+        scanf("%f",&inicioCx);
+        system("cls");
+        printf("\n==============================");
+        printf("\nO VALOR NO CAIXA É: R$%.2f\n",inicioCx);
+        printf("\nConfirmar valor?");
+        printf("\n[1] SIM");
+        printf("\n[2] NÃO\n\n");
+        scanf("%d", &confirmar);
+        printf("===============================\n");
+        if (confirmar == 2){
+            goto ajustar;
+        }
+        caixa += inicioCx; // adiciona no caixa o valor do inicio
+        system("pause");
+    }
+
+// Função para fechamento de caixa, com relatório de faturamento
+void fechamento_caixa() { //funcao para fechar caixa
+    int op1;
+    float valorFechamento = 0;
+
+    if (inicioCx == 0) {  //bloqueio da abertura de caixa
+        system("cls");
+        printf("-----------------------------------------");
+        printf("\n\t OPERAÇÃO INVÁLIDA!\t");
+        printf("\n É NECESSÁRIO INICIALIZAR CAIXA PRIMEIRO");
+        printf("\n-----------------------------------------\n");
+        system("pause");
+        return;
+    }
+
+    if (qtd_Carrinho > 0){
+        system("cls");
+        printf("-----------------------------------------");
+        printf("\n\t OPERAÇÃO INVÁLIDA!\t");
+        printf("\n HÁ VENDAS QUE NÃO FORAM FINALIZADAS");
+        printf("\n-----------------------------------------\n");
+        system("pause");
+        return;
+    }
+
+    system("cls");
+    printf("\n----- FECHAMENTO DE CAIXA-----\n");
+    printf("=================================\n");
+    printf("| [1] FECHAR CAIXA              |\n");
+    printf("---------------------------------\n");
+    printf("| [2] RETORNAR AO MENU          |\n");
+    printf("=================================\n");
+    scanf("%d", &op1);
+
+    switch(op1){
+    case 1:
+    system("cls");
+    printf("\n============ FATURAMENTOS ===========");
+    printf("\n--------------------------------------");
+    printf("\n| QUANTIDADE DE VENDAS:        %d", qtdVendas);
+    printf("\n| FATURAMENTO TOTAL:         R$%.2f", fatTotal);
+    printf("\n| FATURAMENTO EM DINHEIRO:   R$%.2f", fatDinheiro);
+    printf("\n| FATURAMENTO EM CARTÃO:     R$%.2f", caixa_cartao);
+    printf("\n=====================================\n");
+    printf("\n=====================================");
+    printf("\n| VALOR EM CAIXA [DINHEIRO]: R$%.2f", caixa);
+    printf("\n| VALOR RETIRADO DO CAIXA:   R$%.2f", valorSangria);
+    printf("\n|====================================");
+    printf("\n| VALOR INICIAL DO CAIXA:    R$%.2f", inicioCx);
+    printf("\n|====================================\n");
+
+    valorFechamento = caixa - fatDinheiro - caixa_cartao;
+    printf("\nFECHAMENTO: %.2f", valorFechamento);
+    system("pause");
+
+    //Reinicializa as variáveis de vendas e valor inicial do caixa para o próximo expediente
+    inicioCx = 0;
+    fatTotal = 0;
+    fatDinheiro = 0;
+    caixa_cartao = 0;
+    qtdVendas = 0;
+
+    printf("\nCaixa fechado com sucesso!\n");
+    system("pause");
+    break;
+    case 2:
+        printf("\nRetornando ao menu...\n\n");
+        system("pause");
+        main();
+    break;
+    default:
+    fechamento_caixa(); // retorna ao inicio da função
+    system ("cls");
+    break;
+}
+}
+// Função para pagamento
+void facaPagamento(int espaco){
+
+    char desconto = 's', formaPag, finalizarVenda, cpfNota = 's';
+    float porcentDesc = 0, totalFinal = 0;
+    int opcaoPag = 0, novocpf = 0;
+
+
+    qtdVendas = lerVendas(); // chama a função responsável por fazer a leitra do arquivo com registro das vendas
+    if (qtdVendas > 0) { // se houver registros no arquivo qtdVendas será maior que 0, então espaco recebe o valor de qtdVendas
+        espaco = qtdVendas;
+
+    } else {
+        espaco = 1;
+        infoVendas = (relatVendas *)malloc(espaco * sizeof(relatVendas)); // se não, a alocação inicial é feita aqui
+        if (infoVendas == NULL) { // testa se memória foi alocada corretamente
+            printf("Erro ao alocar memória.\n");
+            exit(1);
+        }
+    }
+    vendasAbertas(espaco); // Verifica se há vendas abertas
+
+    if (totalCompra == 0){ // verifica se foi adicionado algum item no carrinho para prosseguir com a compra
+        printf("\n------------------------------------------\n");
+        printf("\nNão há itens no carrinho para pagamento \nAdicione itens para prosseguir com a venda\n\n");
+        printf("------------------------------------------\n\n");
+        system("pause");
+        return;
+    }
+
+    if (qtdVendas == espaco) { // realoca memória
+        espaco *= 2;
+        relatVendas *temp = (relatVendas *)realloc(infoVendas, espaco * sizeof(relatVendas));
+        if (temp == NULL) {
+            printf("\n !ERRO NA REALOCAÇÃO DE MEMÓRIA!\n");
+            system("pause");
+            free(infoVendas);
+            exit(1);
+        }
+        infoVendas = temp;
+    }
+
+
+    // Criação de novo ponteiro para a atualização dos vendas e incremento a cada repetição do laço
+    //relatVendas *novaVenda = &infoVendas[qtdVendas];
+
+    tenteNov: // goto
+    system("cls");
+    carregaCarrinho(); // mostra os itens no carrinho
+    printf("\n\n- O total da compra é: R$%.2f\n\n", totalCompra);
+    if(carrinho->codC == 1){
+        printf("\n- Deseja incluir CPF na nota? [S/N]: ");
+        getchar();
+        scanf(" %c", &cpfNota);
+        if(cpfNota == 's' || cpfNota == 'S'){
+            printf("\nInforme o CPF do cliente [00000000000]: ");
+            getchar();
+            scanf("%d", &novocpf);
+            carrinho->cpf = novocpf;
+        }
+    }
+    printf("\n- Deseja conceder desconto ao cliente? [S/N]: ");
+    getchar(); // limpa buffer
+    scanf(" %c", &desconto);
+    if(desconto == 's' || desconto == 'S'){ // se sim - lê desconto
+        printf("\nInforme a porcentagem de desconto: ");
+        getchar();
+        scanf("%f", &porcentDesc);
+        porcentDesc /= 100; // calcula a porcentagem de desconto
+        totalFinal = totalCompra - (totalCompra * porcentDesc); // calcula o valor total da compra aplicando o desconto
+    }
+    else{ // se não - sem desconto
+        totalFinal = totalCompra;
+    }
+    printf("\nTotal da compra: R$%.2f", totalFinal);
+
+    printf("\n\n---- PAGAMENTO ----");
+    printf("\n [1] Dinheiro");
+    printf("\n [2] Cartão");
+    printf("\n [3] Cancelar");
+    printf("\n [4] Voltar ao menu\n\n- ");
+    scanf("%d", &opcaoPag);
+
+    switch(opcaoPag){
+        case 1:
+            formaPag = pagDinheiro(totalFinal ,formaPag, espaco); // função para pagamento em dinheiro
+        break;
+        case 2:
+            formaPag = pagCartao(totalFinal, formaPag, espaco); // função pagamento no cartão
+        break;
+        case 3: // cancela a compra e zera variáveis
+            printf("\n A compra foi cancelada");
+            printf("\n Retornando ao menu\n");
+            // devolve a quantidade de produtos que estava no carrinho para o estoque
+            for(int i=0; i<qtd_Carrinho; i++){
+                for(int j=0; j<qtdProdutos; j++){
+                    if(carrinho[i].Codigo == produtos[j].Cod){
+                        produtos[j].Estoque += carrinho[i].Quantidade;
+                    }
+                }
+            }
+            totalCompra = 0;
+            totalFinal = 0;
+            formaPag = 'x';
+            gravarProdutos();
+            system("pause");
+        break;
+        case 4: // compra gravada como aberta - não finalizada
+            formaPag = 'a';
+            printf("\nRetornando ao menu...\n\n");
+            system("pause");
+        break;
+        default:
+            printf("\nOpção inválida, tente novamente.\n\n");
+            system("pause");
+            goto tenteNov;
         break;
     }
+    //gravarProdutos();
+    // Grava informações na struct de vendas
+    numeroVend ++;
+    // grava as informações na struct infoVenda
+    infoVendas[qtdVendas].numVenda = numeroVend;
+    infoVendas[qtdVendas].tipoVenda = formaPag;
+    infoVendas[qtdVendas].valorPago = totalFinal;
+    infoVendas[qtdVendas].codCliente = carrinho->codC;
+    infoVendas[qtdVendas].cpf = carrinho->cpf;
+    strcpy(infoVendas[qtdVendas].nomeCliente, carrinho->nomeC);
+    qtdVendas++; // incrementa quantidade de vendas
 
-    free(pt_Produtos);
+    // zera variáveis
+    qtd_Carrinho = 0;
+    totalCompra = 0;
+    totalFinal = 0;
+    free(carrinho);
+}
+// Função pagamento em dinehiro
+char pagDinheiro(float total ,char metodoPag, int espaco){
 
-     return 0;
+    float dinheiro = 0, troco = 0;
+
+    system("cls");
+    printf("- Valor total da compra: R$%.2f", total);
+    printf("\n\n- Informe o valor pago: R$ ");
+    scanf("%f", &dinheiro);
+    troco = dinheiro - total; //calculo do troco
+    if(dinheiro >= total){
+        if(caixa < troco){ // se o valor a retornar de troco for maior que o disponivel em caixa. retorna para nova tentativa
+            printf("\nNão há saldo suficiente no caixa \nEscolha outra forma de pagamento\n\n");
+            system("pause");
+            facaPagamento(espaco);
+        }
+        printf("- O valor a retornar de troco é: R$%.2f", troco);
+        metodoPag = 'd';
+        printf("\n\nCompra finalizada com sucesso!\n");
+        caixa = (caixa + dinheiro) - troco; // adiciona e subtrai valores do caixa
+        fatDinheiro += (caixa - inicioCx);
+        fatTotal += fatDinheiro;
+    }
+    else {
+        metodoPag = divisaoPag(troco, metodoPag, espaco, dinheiro); // caso o valor pago em dinheiro não seja suficiente para pagamento ocorre divisão
+    }
+    system("pause");
+    return metodoPag;
 }
 
-void cadastrar_Informacao_Produtos(Cadastrar_Produtos *pt)
-{
-    printf("\n-- Cadastrar Produto --\n");
-    int validacao_de_Resposta = 0;
+// Quando o valor pago em dinheiro não foi suficiente para pagamento total
+char divisaoPag(float troco, char metodoPag, int espaco, float dinheiro){
 
-        do
-        {
-            if(validacao_de_Resposta > 0)
-                printf("Valor digitado menor ou igual a zera! Digite outro valor...\n");
+    float debito = 0;
+    int op_debito=0;
 
-            printf("ID: ");
-            scanf("%d", &pt->id);
-            getchar();
-            validacao_de_Resposta++;
-        } while (pt->id <= 0);
-        pular_Linha();
-        validacao_de_Resposta =  0;
+    retorno1: //quando cair no default o programa retorna aqui
+    debito = fabs(troco); //a função "fabs" serve para mostrar o absoluto do número apontado entre parenteces. fabs serve para float
+    system("cls");
+    printf("\n!--------------ATENÇÃO--------------!");
+    printf("\nValor pago menor do que o valor devido \nFaltam: R$%.2f\n", debito);
+    printf("\n[1] Finalizar o pagamento no cartão");
+    printf("\n[2] Cancelar a compra \n");
+    scanf("%d", &op_debito);
 
-        printf("Descrição: ");
-        fgets(pt->descricao_Produto, max_caracter, stdin);
-        strtok(pt->descricao_Produto, "\n"); // Remove o \n do final
-        pular_Linha();
-
-        do
-        {
-            if(validacao_de_Resposta > 0)
-                printf("Valor digitado não é 1 ou 2 ou 3! Digite um valor valido...\n");
-
-            printf("Categoria (1-Alimentos, 2-Limpeza, 3-Panificação): ");
-            scanf("%d", &pt->categoria_Produto);
-            validacao_de_Resposta++;
-        } while (pt->categoria_Produto != 1 && pt->categoria_Produto != 2 && pt->categoria_Produto != 3);
-        pular_Linha();
-        validacao_de_Resposta =  0;
-
-
-        do
-        {
-            if(validacao_de_Resposta > 0)
-                printf("Valor digitado menor ou igual a zera! Digite outro valor...\n");
-
-            printf("VALOR DE COMPRA: ");
-            scanf("%f", &pt->Preco_De_Compra);
-            getchar();
-            validacao_de_Resposta++;
-        } while (pt->Preco_De_Compra <= 0);
-        pular_Linha();
-        validacao_de_Resposta =  0;
-
-        do
-        {
-            if(validacao_de_Resposta > 0)
-                printf("Valor digitado menor ou igual a zera! Digite outro valor...\n");
-
-            printf("PREÇO DE VENDA: ");
-            scanf("%f", &pt->Preco_De_Venda);
-            getchar();
-            validacao_de_Resposta++;
-        } while (pt->Preco_De_Venda <= 0);
-        pular_Linha();
-        validacao_de_Resposta =  0;
-
-        do
-        {
-            if(validacao_de_Resposta > 0)
-                printf("Valor digitado menor ou igual a zera! Digite outro valor...\n");
-
-            printf("QUANTIDADE ESTOQUE: ");
-            scanf("%d", &pt->Quantidade_em_Estoque);
-            getchar();
-            validacao_de_Resposta++;
-        } while (pt->Quantidade_em_Estoque <= 0);
-        pular_Linha();
-        validacao_de_Resposta =  0;
-
-        do
-        {
-            if(validacao_de_Resposta > 0)
-                printf("Valor digitado menor ou igual a zera! Digite outro valor...\n");
-
-            printf("ESTOQUE MINÍMO: ");
-            scanf("%d", &pt->estoque_Minimo);
-            getchar();
-            validacao_de_Resposta++;
-        } while (pt->estoque_Minimo <= 0);
-        pular_Linha();
-        validacao_de_Resposta =  0;
-}
-
-void salvar_Produtos_Arquivo(Cadastrar_Produtos *pt, FILE *arquivo)
-{
-    fprintf(arquivo, "%d;%s;%d;%.2f;%.2f;%d;%d\n",
-        pt->id,
-        pt->descricao_Produto,
-        pt->categoria_Produto,
-
-        pt->Preco_De_Compra,
-        pt->Preco_De_Venda,
-        pt->Quantidade_em_Estoque,
-        pt->estoque_Minimo);
-}
-
-void listar_Produtos()
-{
-    FILE *arquivo = fopen(ARQUIVO, "r");
-    if(arquivo == NULL)
-    {
-        printf("ERRO AO ABRIR ARQUIVO!!!\n");
-        return ;
-    }
-
-    printf("\n-- Produtos Cadastrados --\n");
-
-    Cadastrar_Produtos temp;
-    while (fscanf(arquivo, "%d;%[^;];%d;%f;%f;%d;%d\n",
-                &temp.id,
-                temp.descricao_Produto,
-                &temp.categoria_Produto,
-                &temp.Preco_De_Compra,
-                &temp.Preco_De_Venda,
-                &temp.Quantidade_em_Estoque,
-                &temp.estoque_Minimo) != EOF)
-    {
-
-        printf("ID: %d\n", temp.id);
-        printf("Descrição: %s\n", temp.descricao_Produto);
-        printf("Categoria: %d\n", temp.categoria_Produto);
-        printf("Compra: R$ %.2f | Venda: R$ %.2f\n", temp.Preco_De_Compra, temp.Preco_De_Venda);
-        printf("Estoque: %d | Mínimo: %d\n", temp.Quantidade_em_Estoque, temp.estoque_Minimo);
-        printf("-------------------------\n");
-    }
-
-    fclose(arquivo);
-}
-
-void mostrar_Produtos_Compra() {
-    FILE *arquivo = fopen(ARQUIVO, "r");
-
-    if (arquivo == NULL) {
-        printf("Erro ao abrir o arquivo de produtos.\n");
-        return;
-    }
-
-    Cadastrar_Produtos produto;
-
-    printf("\nProdutos disponíveis:\n");
-    printf("ID\tDescrição\t\tEstoque\t\tPreço de Venda\n");
-    printf("---------------------------------------------------------------\n");
-
-    while (fscanf(arquivo, "%d;%[^;];%d;%f;%f;%d;%d\n",
-                  &produto.id,
-                  produto.descricao_Produto,
-                  &produto.categoria_Produto,
-                  &produto.Preco_De_Compra,
-                  &produto.Preco_De_Venda,
-                  &produto.Quantidade_em_Estoque,
-                  &produto.estoque_Minimo) != EOF)
-    {
-        printf("%d\t%-20s\t%d\t\tR$ %.2f\n",
-               produto.id,
-               produto.descricao_Produto,
-               produto.Quantidade_em_Estoque,
-               produto.Preco_De_Venda);
-    }
-
-    fclose(arquivo);
-}
-
-void venda_de_Produtos()
-{
-    int codigo, quantidade;
-    char linha[256], escolha_continuar_Comprando;
-    idx = qtd_clientes; //aqui da para alterar para o id do cliente
-    Cadastrar_Produtos temp;
-
-    clientes = realloc(clientes, (qtd_clientes + 1) * sizeof(Carrinho));
-    if (clientes == NULL)
-    {
-        printf("Erro ao alocar memória para carrinhos!\n");
-    }
-
-    clientes[qtd_clientes].itens = NULL;
-    clientes[qtd_clientes].qtd_itens = 0;
-    clientes[qtd_clientes].ID_Cliente = qtd_clientes + 1; // ou outro ID único
-    clientes[qtd_clientes].total_final = 0.0;
-
-
-    do
-    {
-        #ifdef _WIN32
+    switch(op_debito){
+        case 1:// Finaliza no cartão
             system("cls");
-        #else
-            system("clear");
-        #endif
-
-        mostrar_Produtos_Compra();
-
-        // Mostrar resumo da compra
-        printf("\n\n============= NOTA FISCAL (Prévia) =============\n");
-        printf("ITEM\tQTD\tUNITÁRIO\tSUBTOTAL\n");
-
-        for (int i = 0; i < clientes[idx].qtd_itens; i++)
-        {
-            printf("%s\t%d\tR$ %.2f\t\tR$ %.2f\n",
-                clientes[idx].itens[i].descricao,
-                clientes[idx].itens[i].quantidade,
-                clientes[idx].itens[i].preco_unitario,
-                clientes[idx].itens[i].subtotal);
-        }
-
-        //Abrindo o arquivo que está nosso aetoque para poder verificar os dados dos produtos;
-        FILE *arquivo = fopen(ARQUIVO, "r");
-        if(arquivo == NULL)
-        {
-            printf("\nErroo abrir o arquivo de produtos!!!");
-            fclose(arquivo);
-            return ;
-        }
-
-        printf("\nCarrinho de compras: ");
-
-        printf("\nInforme o codigo do produto a ser comprado: ");
-        scanf("%d", &codigo);
-
-        int produto_encontrado = 0;
-
-        while(fgets(linha, sizeof(linha), arquivo) != NULL)
-        {
-            int campo_lido = sscanf(linha,"%d;%[^;];%d;%f;%f;%d;%d",
-                                &temp.id,
-                                temp.descricao_Produto,
-                                &temp.categoria_Produto,
-                                &temp.Preco_De_Compra,
-                                &temp.Preco_De_Venda,
-                                &temp.Quantidade_em_Estoque,
-                                &temp.estoque_Minimo);
-
-            if(campo_lido == 7 && codigo == temp.id)
-            {
-                produto_encontrado = 1;
-
-                printf("\nProduto encontrado: %s", temp.descricao_Produto);
-                printf("\nQuantidade em estoque: %d", temp.Quantidade_em_Estoque);
-                printf("\nInforme a quantidade desejada: ");
-                scanf("%d", &quantidade);
-
-                if(quantidade <= temp.Quantidade_em_Estoque)
-                {
-                    float valor = temp.Quantidade_em_Estoque - quantidade;
-                    if(valor <= temp.estoque_Minimo)
-                        printf("\nAviso: estoque no limite mínimo!!!!");
-
-                   atualizarEstoque(codigo, quantidade);
-
-                    clientes[idx].itens = realloc(clientes[idx].itens, (clientes[idx].qtd_itens + 1)
-                                             * (sizeof(ItemCarrinho)));
-                    if (clientes[idx].itens == NULL) {
-                        printf("Erro ao alocar memória!\n");
-                        fclose(arquivo);
-                        return;
+            metodoPag = pagCartao(debito, metodoPag, espaco);
+            metodoPag = 'b';
+            caixa += dinheiro; // Grava em caixa cartão o valor pago
+            fatDinheiro += (caixa - inicioCx); // Grava o faturamenro em dinheiro no caixa descontando o valor inicial do caixa
+            fatTotal += fatDinheiro + caixa_cartao; // Grava no faturamento total
+        break;
+        case 2: // cancela compra
+            system("cls");
+            printf("\nA compra foi cancelada");
+            printf("\nRetornando para o menu inicial\n");
+            for(int i=0; i<qtd_Carrinho; i++){
+                for(int j=0; j<qtdProdutos; j++){
+                    if(carrinho[i].Codigo == produtos[j].Cod){
+                        produtos[j].Estoque += carrinho[i].Quantidade;
                     }
-
-                    ItemCarrinho *item = &clientes[idx].itens[clientes[idx].qtd_itens];
-
-                    item->id_produto = temp.id;
-                    strcpy(item->descricao, temp.descricao_Produto);
-                    item->preco_unitario = temp.Preco_De_Venda;
-                    item->quantidade = quantidade;
-                    item->subtotal = quantidade * temp.Preco_De_Venda;
-
-                    clientes[idx].total_final += item->subtotal;
-                    clientes[idx].qtd_itens++;
-
-                    printf("\nItem adicionado ao carrinho!");
-
                 }
-                else
-                    printf("\nQuantidade no estoque insuficiente!");
+            }
+            gravarProdutos();
+            totalCompra = 0;
+            metodoPag = 'x';
+            qtd_Carrinho = 0;
+            system("pause");
+        break;
+        default:
+            printf("Opção inválida");
+            goto retorno1;
+        break;
+    }
+    return metodoPag;
+}
+// Pagamento no cartão
+char pagCartao(float total, char metodoPag, int espaco){
 
-                break; // produto encontrado, não precisa continuar lendo
-                }
-        }
+    int cartao = 0;
 
-        if (!produto_encontrado)
-            printf("\nCódigo do produto inválido ou não encontrado.");
+    system("cls");
+    printf("\n- Valor a pagar: R$%.2f \n\n", total);
+    printf("\n---------------------------------");
+    printf("\n|[0] PAGAMENTO NO CARTAO -NÃO OK-");
+    printf("\n|[1] PAGAMENTO NO CARTAO -OK-    ");
+    printf("\n---------------------------------");
+    printf("\nSelecione a opção: ");
+    scanf("%d", &cartao);
 
-        fclose(arquivo);
+    if (cartao == 1) {
 
-        do {
-            printf("\nNovo item no carrinho de compra (s/n): ");
-            scanf(" %c", &escolha_continuar_Comprando);
-            if (escolha_continuar_Comprando != 's' && escolha_continuar_Comprando != 'n')
-                printf("\nOpção inválida!");
+        printf("\nTudo certo :)\n");
+        metodoPag = 'c';
+        caixa_cartao += total;
+        fatTotal += caixa_cartao;
+    }
+    else  { // retorna ao inicio da função para que ocorra nova tentativa de pagamento
+        facaPagamento(espaco);
+    }
 
-        } while (escolha_continuar_Comprando != 's' && escolha_continuar_Comprando != 'n');
-
-    } while (escolha_continuar_Comprando == 's');
-
+    return metodoPag;
 }
 
-void atualizarEstoque(int idProduto, int quantidadeComprada) {
-    FILE *arquivoOriginal = fopen(ARQUIVO, "r");
-    FILE *arquivoTemp = fopen(TEMP, "w");
+void menuRelatorios(){
 
-    if (!arquivoOriginal || !arquivoTemp) {
-        printf("Erro ao abrir arquivos para atualizar estoque.\n");
-        if (arquivoOriginal) fclose(arquivoOriginal);
-        if (arquivoTemp) fclose(arquivoTemp);
-        return;
-    }
+    int opcaoRelat = 0;
 
-    Cadastrar_Produtos temp;
-
-    while (fscanf(arquivoOriginal, "%d;%[^;];%d;%f;%f;%d;%d",
-                  &temp.id,
-                  temp.descricao_Produto,
-                  &temp.categoria_Produto,
-                  &temp.Preco_De_Compra,
-                  &temp.Preco_De_Venda,
-                  &temp.Quantidade_em_Estoque,
-                  &temp.estoque_Minimo) != EOF)
-    {
-        if (temp.id == idProduto) {
-            temp.Quantidade_em_Estoque -= quantidadeComprada;
-            if (temp.Quantidade_em_Estoque < 0) temp.Quantidade_em_Estoque = 0;
-        }
-
-        fprintf(arquivoTemp, "%d;%s;%d;%.2f;%.2f;%d;%d\n",
-                temp.id,
-                temp.descricao_Produto,
-                temp.categoria_Produto,
-                temp.Preco_De_Compra,
-                temp.Preco_De_Venda,
-                temp.Quantidade_em_Estoque,
-                temp.estoque_Minimo);
-    }
-
-    fclose(arquivoOriginal);
-    fclose(arquivoTemp);
-
-    // Substitui o arquivo original pelo atualizado
-    remove(ARQUIVO);
-    rename(TEMP, ARQUIVO);
-}
-
-void nota_E_Desconto()
-{
-    float total_compra = 0, desconto_no_totalC;
-
-    printf("\n\n============= NOTA FISCAL =============\n");
-    printf("ITEM\tQTD\tUNITÁRIO\tSUBTOTAL\n");
-
-    for (int i = 0; i < clientes[idx].qtd_itens; i++)
-    {
-        printf("%s\t%d\tR$ %.2f\t\tR$ %.2f\n",
-            clientes[idx].itens[i].descricao,
-            clientes[idx].itens[i].quantidade,
-            clientes[idx].itens[i].preco_unitario,
-            clientes[idx].itens[i].subtotal);
-            total_compra += clientes[idx].itens[i].subtotal;
-    }
-
-    printf("\nTotal compra: \n\t\tR$ %.2f", total_compra);
-
-    printf("\nHá desconto (informe 0 (para não) ou porcentos concedido: ");
-    if((scanf("%f", &desconto_no_totalC)) != 0)
-    {
-        desconto_no_totalC = desconto_no_totalC/100;
-        total_compra = total_compra * desconto_no_totalC;
-    }
-
-    printf("\nTotal final: R$ %.2f", total_compra);
-
-}
-
-void nota_fiscal()
-{
-    float total_compra;
-
-    printf("\n\n============= NOTA FISCAL =============\n");
-    printf("ITEM\tQTD\tUNITÁRIO\tSUBTOTAL\n");
-
-    for (int i = 0; i < clientes[idx].qtd_itens; i++)
-    {
-        printf("%s\t%d\tR$ %.2f\t\tR$ %.2f\n",
-            clientes[idx].itens[i].descricao,
-            clientes[idx].itens[i].quantidade,
-            clientes[idx].itens[i].preco_unitario,
-            clientes[idx].itens[i].subtotal);
-            total_compra += clientes[idx].itens[i].subtotal;
-    }
-
-    printf("\nTotal compra: \n\t\tR$ %.2f", total_compra);
-}
-
-void salvar_Compra()
-{
-    FILE *file = fopen("venda.txt", "a+");
-    if(file == NULL)
-        printf("\nErro ao abrir o arquivo de compras");
-
-    fprintf(file, "%d;%d;%c;%c;%f\n",
-            clientes[idx].ID_Cliente,
-            clientes[idx].num_Venda,
-            clientes[idx].categoria_Pagamento,
-            clientes[idx].situacao_Do_pagamento,
-            clientes[idx].valor_Recebido);
-
-    for(int i =0; i < clientes[idx].qtd_itens; i++)
-    {
-        fprintf(file, "%d;%s;%f;%f\n",
-            clientes[idx].itens[i].id_produto,
-            clientes[idx].itens[i].descricao,
-            clientes[idx].itens[i].preco_unitario,
-            clientes[idx].itens[i].subtotal);
-    }
-
-    for (int i = 0; i < qtd_clientes; i++)
-    {
-        free(clientes[i].itens);
-    }
-    free(clientes);
-}
-
-void pagamento()
-{
-    int opcao, aprovacao_maquina = 0, x=0;
-    float valor_QFalta, valor_Recebido;
-    char y;
-
-    if(clientes[idx].total_final == 0)
-    {
-        printf("\nNem um produto foi comprado...");
-        return;
-    }
-    else
-    {
-        printf("\n1 - Cartao\t2 - dinheiro\t3 - retornar ao menu principal");
-        scanf("%d", &opcao);
-
-        do
-        {
-           switch (opcao)
-            {
+    do {
+        system("cls");
+        printf("-------- RELATÓRIOS --------\n\n");
+        printf("- [1] CLIENTES\n");
+        printf("- [2] PRODUTOS\n");
+        printf("- [3] VENDAS\n");
+        printf("- [4] RETORNAR AO MENU\n");
+        printf("\nSelecione a opção desejada: ");
+        scanf("%d", &opcaoRelat);
+        switch(opcaoRelat){
             case 1:
-                nota_fiscal();
-                clientes[idx].categoria_Pagamento = 'c';
+                lerClientes();
+                relatorioClientes();
+            break;
+            case 2:
+                lerProdutos();
+                ordenarProdutos();
+                relatorioProdutos();
 
-                do
-                {
-                    printf("\nInforme: \n(1) – Pagamento na maquinha Ok\n(0) – Pagamento no cartão não Ok");
-                    scanf("%d", &aprovacao_maquina);
-                    if(x > 0)
-                        printf("\nOpcao invalida");
-                    x++;
-                }while(aprovacao_maquina !=  1 && aprovacao_maquina != 0);
+            break;
+            case 3:
+                lerVendas();
+                relatorioVendas();
+            break;
+            case 4:
+                printf("Retornando ao menu...\n\n");
+                system("pause");
+            break;
+            default:
+                printf("Opção inválida, tente novamente.\n");
+                system("pause");
+                menuRelatorios();
+            break;
+        }
+    }while(opcaoRelat != 4);
+}
 
-                if(aprovacao_maquina == 1)
-                {
-                    clientes[idx].situacao_Do_pagamento = 'f';
-                    clientes[idx].valor_Recebido = clientes[idx].total_final;
-                    salvar_Compra();
-                    printf("\nPagamento efetuado com sucesso <3");
-                }
+void relatorioProdutos(){
 
+    system("cls");
+    printf("------------ PRODUTOS CADASTRADOS -------------\n\n");
+    printf("| CÓDIGO |      DESCRIÇÃO      |   CATEGORIA   |\n");
+    printf("-----------------------------------------------\n");
+    for (int i=0; i<qtdProdutos; i++){
+        printf("| %-6d | %-19s | %-13s |\n", produtos[i].Cod, produtos[i].descricaoProd, produtos[i].Categoria);
+    }
+
+    system("pause");
+}
+
+void relatorioVendas(){
+
+    system("cls");
+    printf("----------- VENDAS -----------\n\n");
+    printf("- LEGENDA:\n");
+    printf("- [a] Aberta\n");
+    printf("- [b] Dinheiro/Cartão\n");
+    printf("- [c] Cartão\n");
+    printf("- [d] Dinheiro\n");
+    printf("- [x] Venda Cancelada\n\n");
+    for (int i=0; i<qtdVendas; i++){
+        printf("-------------------------------------------------------------------\n");
+        printf("| CLIENTE: [%-4d] | %-25s | CPF: %-11d |\n", infoVendas[i].codCliente, infoVendas[i].nomeCliente, infoVendas[i].cpf);
+        printf("| VENDA:   [%-4d] | R$%-23.2f | TIPO: %-10c |\n", infoVendas[i].numVenda, infoVendas[i].valorPago, infoVendas[i].tipoVenda);
+        printf("-------------------------------------------------------------------\n");
+    }
+    system("pause");
+}
+
+void relatorioClientes(){
+    char continua = 's';
+    int ver;
+    if(tcad == 0){
+            menuRelatorios();
+    }
+    system("cls");
+    printf("\t...::Lista dos clientes cadastrados::...\n\n");
+    printf("\tcodigo\tnome\n");
+    for(int i=0; i<tcad;i++){
+        printf("\t%d \t%s \n",cliente[i].codigo,cliente[i].nome);
+    }
+
+    printf("\n- Informe o código da pessoa cadastrada que deseja ver mais informaçoes: ");
+    while (continua == 's' || continua == 'S') {
+        scanf("%d", &ver);
+        for (int i = 0; i < tcad; i++) {
+            if (ver == cliente[i].codigo) {
+                printf("- CODIGO: %d\n",cliente[i].codigo);
+                printf("- NOME: %s\n",cliente[i].nome);
+                printf("- NOME SOCIAL: %s\n",cliente[i].nomeS);
+                printf("- CPF: %d\n",cliente[i].cpf);
+                printf("- RUA: %s\n",cliente[i].rua);
+                printf("- NUMERO DA RUA: %d\n",cliente[i].Nrua);
+                printf("- BAIRRO: %s\n",cliente[i].bairro);
+                printf("- CELULAR/WHATS: %d\n",cliente[i].Ncelular);
+            }
+        }
+
+        printf("\n\nDeseja ver os detalhes de mais algum cliente? [S/N]:");
+        fflush(stdin);
+        scanf(" %c", &continua);
+        printf("\n\n");
+    }
+    printf("\n ");
+
+    system("pause");
+}
+
+void vendasAbertas(int espaco){
+
+    char finalizarVenda, formaPag;
+    int opPag = 0;
+    float totalPagar = 0;
+
+    for (int i=0; i<qtdVendas; i++){ // Varre a struct para encontrar vendas abertas
+        if (infoVendas[i].tipoVenda == 'a'){
+            printf("\nHá vendas que não foram finalizadas!\nDeseja finalizar? [S/N]: ");
+            scanf(" %c", &finalizarVenda);
+            if (finalizarVenda == 's' || finalizarVenda == 'S'){
+                printf("------------------------\n");
+                printf("| CÓDIGO | PREÇO TOTAL |\n");
+                printf("------------------------\n");
+                printf("| %-6d | R$%-9.2f |\n", infoVendas[i].numVenda, infoVendas[i].valorPago);
+                totalPagar = infoVendas[i].valorPago;
+                formaPag = 'a';
+                // Pagamento igual ao pagamento de (faca pagamento)
+                printf("\n\n---- PAGAMENTO ----");
+                printf("\n [1] Dinheiro");
+                printf("\n [2] Cartão");
+                printf("\n [3] Cancelar");
+                printf("\n [4] Voltar ao menu\n\n- ");
+                scanf("%d", &opPag);
+                getchar();
+
+                switch(opPag){
+                case 1:
+                    formaPag = pagDinheiro(totalPagar ,formaPag, espaco);
                 break;
                 case 2:
-                    nota_fiscal();
-                    clientes[idx].categoria_Pagamento = 'd';
-
-                    printf("\nValor recebido: ");
-                    scanf("%f", &valor_Recebido);
-                    clientes[idx].valor_Recebido = valor_Recebido;
-
-                    //Aqui vai o troco, fazer o calculo de quanto temos no caixa e devolter determinada quantia
-                    if(clientes[idx].valor_Recebido < clientes[idx].total_final)
-                    {
-                        do
-                        {
-                            printf("\nValor insuficiente! deseja pagar o resto no cartao (s/n)");
-                            scanf("%c", &y);
-
-                        } while (y != 's' && y != 'n');
-
-                        if(y == 's')
-                        {
-                            printf("\nPagamento efetuado com sucesso <3");
-                            clientes[idx].categoria_Pagamento = 'dc';
-                            clientes[idx].situacao_Do_pagamento = 'f';
-                        }
-                        else
-                        {
-                            do
-                            {
-                                valor_QFalta = (clientes[idx].total_final) - (clientes[idx].valor_Recebido);
-                                printf("\nA quantia que falta é: R$ %.2f", valor_QFalta);
-                                printf("\nInforme o valor pago: ");
-                                scanf("%f", &valor_Recebido);
-                                clientes[idx].valor_Recebido = valor_Recebido;
-                            } while (clientes[idx].valor_Recebido < clientes[idx].total_final);
-
-                            clientes[idx].situacao_Do_pagamento = 'f';
-                            salvar_Compra();
-                            printf("\nPagamento efetuado com sucesso <3");
-                        }
-                    }
-                    else
-                    {
-                        printf("\nPagamento efetuado com sucesso <3");
-                        clientes[idx].situacao_Do_pagamento = 'f';
-                        salvar_Compra();
-                    }
-
+                    formaPag = pagCartao(totalPagar ,formaPag, espaco);
                 break;
-
+                case 3:
+                    printf("\n A compra foi cancelada\n\n");
+                    totalCompra = 0;
+                    totalPagar = 0;
+                    formaPag = 'x';
+                    infoVendas[i].valorPago = 0;
+                    // devolve a quantidade de produtos que estava no carrinho para o estoque
+                    for(int i=0; i<qtd_Carrinho; i++){
+                        for(int j=0; j<qtdProdutos; j++){
+                            if(carrinho[i].Codigo == produtos[j].Cod){
+                                produtos[j].Estoque += carrinho[i].Quantidade;
+                            }
+                        }
+                    }
+                    gravarProdutos();
+                    system("pause");
+                break;
+                case 4:
+                    formaPag = 'a';
+                    printf("\nRetornando ao menu...\n\n");
+                    system("pause");
+                    return;
+                break;
                 default:
-                    printf("\nOpcao invalida");
+                    printf("\nOpção inválida, tente novamente.\n\n");
+                    system("pause");
+                    return;
                 break;
             }
-            if(aprovacao_maquina == 0)
-                opcao = 3;
-        }while(opcao != 3 && aprovacao_maquina != 0);
 
-
+            infoVendas[i].tipoVenda = formaPag; // Atualiza a forma de pagamento
+            }
+        }
     }
-
+    system("cls");
 }
 
+void sair() {
 
+    //declaração de variáveis
+    int sair = 0;
 
+    if (inicioCx > 0) {
+            system("cls");
+            printf("-----------------------------------------");
+            printf("\n\t OPERAÇÃO INVÁLIDA!\t");
+            printf("\n\tO CAIXA ESTA ABERTO!");
+            printf("\n-----------------------------------------\n");
+            system("pause");
+            main();
+        }
+    system("cls");
+        printf("\nTem certeza que deseja sair?\n");
+        printf("\n[1] SIM");
+        printf("\n[2] NÃO\n");
+        scanf("%d", &sair);
+        getchar();
+
+        if (sair == 1) {
+            printf("\nATÉ LOGO :)\n");
+            free(produtos);
+            free(carrinho);
+            free(infoVendas);
+            exit(0);
+        }
+        else {
+            main();
+        }
+    }

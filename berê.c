@@ -11,7 +11,6 @@
 #define max_inf 50
 #define ARQUIVO "estoque.bin"          // renomeando o arquivo que vai ser valvo
 #define COMPRAS "vendas.bin"           // criando um novo arquivo para salvar as compras de cada cliente;
-//#define TEMP "temp.txt"
 #define DADOSCLIENTES "DadosClientes.txt"
 
 /* Fim Defines ----------------------*/
@@ -68,14 +67,13 @@ typedef struct
 Carrinho *clientes = NULL;
 int qtd_clientes = 0;
 int idx;
+float saldo_caixa = 0.0;
 
 /* Fim Variaveis Globais ------------------*/
 
 /* Inicializando Funcoes ------------------*/
 
 void cadastrar_Informacao_Produtos(Cadastrar_Produtos *pt);
-void salvar_Todos_Produtos_Arquivo_Binario(Cadastrar_Produtos *produtos, int total);
-void listar_Produtos_Binario();
 void mostrar_Produtos_Compra_Binario();
 void venda_de_Produtos();
 void atualizar_Estoque(int idProduto, int quantidadeComprada);
@@ -142,24 +140,6 @@ int main()
     return 0;
 }
 
-void pular_Linha()
-{
-    printf("\n");
-}
-
-void salvar_Produtos_Arquivo(Cadastrar_Produtos *pt, FILE *arquivo)
-{
-    fprintf(arquivo, "%d;%s;%d;%.2f;%.2f;%d;%d\n",
-            pt->id,
-            pt->descricao_Produto,
-            pt->categoria_Produto,
-
-            pt->Preco_De_Compra,
-            pt->Preco_De_Venda,
-            pt->Quantidade_em_Estoque,
-            pt->estoque_Minimo);
-}
-
 int exibirMenu()
 {
     char opcao[10]; // alterado para string, pois caso o usuario inserisse um caracter, ele bugava o codigo
@@ -177,6 +157,11 @@ int exibirMenu()
     printf("%32s", "Escolha uma opção: ");
     fgets(opcao, sizeof(opcao), stdin);
     return atoi(opcao); // Para transformar um valor de texto em um inteiro em C, a função atoi() da biblioteca stdlib.h pode ser usada (Google)
+}
+
+void pular_Linha()
+{
+    printf("\n");
 }
 
 void exibirCadastros()
@@ -302,6 +287,16 @@ void cadastrarCliente(Cliente *new_cliente)
     fclose(arquivo); // fechando o arquivo
 }
 
+int verificaArquivo(FILE *arquivo)
+{
+    if (arquivo == NULL)
+    {
+        perror("Erro ao abrir o arquivo"); // mostra erro mais detalhado
+        return 1;                          // indica erro
+    }
+    return 0; // tudo certo
+}
+
 int contadorCaracterFile(char *nome_arquivo, char caracter_desejado)
 { // funcao para contar quantos caracteres especificos possuem em um arquivo
     int contador = 0;
@@ -335,16 +330,6 @@ void limparBuffer()
     // garantindo que o próximo comando de entrada comece em uma entrada limpa
     while ((ch = getchar()) != '\n' && ch != EOF)
         ;
-}
-
-int verificaArquivo(FILE *arquivo)
-{
-    if (arquivo == NULL)
-    {
-        perror("Erro ao abrir o arquivo"); // mostra erro mais detalhado
-        return 1;                          // indica erro
-    }
-    return 0; // tudo certo
 }
 
 void removeEnterTexto(char *texto)
@@ -551,7 +536,7 @@ void venda_de_Produtos()
                     if (valor <= temp.estoque_Minimo)
                         printf("\nAviso: estoque no limite mínimo!!!!");
 
-                    atualizarEstoque(codigo, quantidade); // essa função também precisa estar adaptada ao binário
+                    atualizar_Estoque(codigo, quantidade); // essa função também precisa estar adaptada ao binário
 
                     clientes[idx].itens = realloc(clientes[idx].itens,
                                                 (clientes[idx].qtd_itens + 1) * sizeof(ItemCarrinho));
@@ -679,6 +664,8 @@ void nota_E_Desconto()
 
     printf("\nTotal final com desconto: R$ %.2f\n", total_compra);
 }
+
+//          SANGUIA
 
 void pagamento()
 {
@@ -873,61 +860,14 @@ void salvar_Compra()
     free(clientes);
 }
 
-/*Teste ---------*/
-
-typedef struct {
-    float valor;
-    char tipo; // 'a' - abertura, 's' - sangria, 'd' - dinheiro, 'c' - cartão
-    int num_venda; // 0 se for abertura/sangria
-} MovimentoCaixa;
-
-typedef struct {
-    int num_venda;
-    float valor_total;
-    char forma_pagamento; // 'd'-dinheiro, 'c'-cartão, 'dc'-ambos
-    char situacao; // 'a'-aberto, 'p'-pago
-} Venda;
-
-typedef struct
-{
-    int Cod;
-    char descricaoProd[max_caracter];
-    char Categoria;
-    int codCliente;
-    char nomeCliente[max_caracter];
-    int cpf;
-    int numVenda;
-    float valorPago;
-    char tipoVenda;
-}Produtos;
-
-
-MovimentoCaixa *movimentos = NULL;
-int qtd_movimentos = 0;
-int qtdProdutos;
-int qtdVendas;
-Venda *vendas = NULL;
-int qtd_vendas = 0;
-float saldo_caixa = 0.0;
-Produtos produtos[];
-Produtos infoVendas[];
-
-
 void abrirCaixa() {
     float valor;
     // Solicita o valor inicial do caixa
     printf("Informe o valor de abertura do caixa: ");
     scanf("%f", &valor);
-    getchar();// Limpa o buffer do teclado
 
       // Verifica se o valor é válido (não negativo)
     if (valor >= 0) {
-         // Aloca espaço para um novo movimento no caixa
-        movimentos = realloc(movimentos, (qtd_movimentos + 1) * sizeof(MovimentoCaixa));
-        movimentos[qtd_movimentos].valor = valor;
-        movimentos[qtd_movimentos].tipo = 'a'; // 'a' para abertura
-        movimentos[qtd_movimentos].num_venda = 0;// 0 pois não é associado a venda
-        qtd_movimentos++;
 
         saldo_caixa = valor;  // Atualiza o saldo do caixa
         printf("Caixa aberto com R$ %.2f\n", valor);
@@ -1030,38 +970,40 @@ void menuRelatorios(){
     }while(opcaoRelat != 4);
 }
 
-void relatorioProdutos(){
-
-    system("cls");
-    printf("------------ PRODUTOS CADASTRADOS -------------\n\n");
-    printf("| CÓDIGO |      DESCRIÇÃO      |   CATEGORIA   |\n");
-    printf("-----------------------------------------------\n");
-    for (int i=0; i<qtdProdutos; i++){
-        printf("| %-6d | %-19s | %-13s |\n", produtos[i].Cod, produtos[i].descricaoProd, produtos[i].Categoria);
+void listarClientes(){
+        FILE *arquivo = fopen(DADOSCLIENTES, "r");
+    if(arquivo == NULL)
+    {
+        printf("ERRO AO ABRIR ARQUIVO!!!\n");
+        return ;
     }
 
-    system("pause");
-}
+    printf("\n-- Clientes Cadastrados --\n");
 
-void relatorioVendas(){
+    Cliente temp;
+    while (fscanf(arquivo, "%d,%99[^,],%99[^,],%11[^,],%49[^,],%49[^,],%49[^\n]\n",
+                &temp.cod,
+                temp.nome,
+                temp.nome_social,
+                temp.cpf,
+                temp.rua_num,
+                temp.bairro,
+                temp.celular) != EOF)
+    {
 
-    system("cls");
-    printf("----------- VENDAS -----------\n\n");
-    printf("- LEGENDA:\n");
-    printf("- [a] Aberta\n");
-    printf("- [b] Dinheiro/Cartão\n");
-    printf("- [c] Cartão\n");
-    printf("- [d] Dinheiro\n");
-    printf("- [x] Venda Cancelada\n\n");
-    for (int i=0; i<qtdVendas; i++){
-        printf("-------------------------------------------------------------------\n");
-        printf("| CLIENTE: [%-4d] | %-25s | CPF: %-11d |\n", infoVendas[i].codCliente, infoVendas[i].nomeCliente, infoVendas[i].cpf);
-        printf("| VENDA:   [%-4d] | R$%-23.2f | TIPO: %-10c |\n", infoVendas[i].numVenda, infoVendas[i].valorPago, infoVendas[i].tipoVenda);
-        printf("-------------------------------------------------------------------\n");
+        printf("ID: %d\n", temp.cod);
+        printf("Nome: %s\n", temp.nome);
+        printf("Nome Social: %s\n", temp.nome_social);
+        printf("CPF: %s\n", temp.cpf);
+        printf("Rua: %s\n", temp.rua_num);
+        printf("Bairro: %s\n", temp.bairro);
+        printf("Telefone: %s\n", temp.celular);
+        printf("-------------------------\n");
     }
-    system("pause");
-}
 
+    fclose(arquivo);
+}
+/*
 void relatorioClientes(){
     char continua = 's';
     int ver;
@@ -1101,58 +1043,104 @@ void relatorioClientes(){
     system("pause");
 }
 
-void listar_Produtos_Binario() {
-    FILE *arquivo = fopen(ARQUIVO, "rb"); // abrindo em modo leitura binária
-    if (arquivo == NULL) {
-        printf("ERRO AO ABRIR ARQUIVO!!!\n");
-        return;
+void relatorioProdutos(){
+
+    system("cls");
+    printf("------------ PRODUTOS CADASTRADOS -------------\n\n");
+    printf("| CÓDIGO |      DESCRIÇÃO      |   CATEGORIA   |\n");
+    printf("-----------------------------------------------\n");
+    for (int i=0; i<qtdProdutos; i++){
+        printf("| %-6d | %-19s | %-13s |\n", produtos[i].Cod, produtos[i].descricaoProd, produtos[i].Categoria);
     }
 
-    printf("\n-- Produtos Cadastrados --\n");
-
-    Cadastrar_Produtos temp;
-    while (fread(&temp, sizeof(Cadastrar_Produtos), 1, arquivo) == 1) {
-        printf("ID: %d\n", temp.id);
-        printf("Descrição: %s\n", temp.descricao_Produto);
-        printf("Categoria: %d\n", temp.categoria_Produto);
-        printf("Compra: R$ %.2f | Venda: R$ %.2f\n", temp.Preco_De_Compra, temp.Preco_De_Venda);
-        printf("Estoque: %d | Mínimo: %d\n", temp.Quantidade_em_Estoque, temp.estoque_Minimo);
-        printf("-------------------------\n");
-    }
-
-    fclose(arquivo);
+    system("pause");
 }
 
-void listarClientes(){
-        FILE *arquivo = fopen(DADOSCLIENTES, "r");
-    if(arquivo == NULL)
-    {
-        printf("ERRO AO ABRIR ARQUIVO!!!\n");
-        return ;
+void relatorioVendas(){
+
+    system("cls");
+    printf("----------- VENDAS -----------\n\n");
+    printf("- LEGENDA:\n");
+    printf("- [a] Aberta\n");
+    printf("- [b] Dinheiro/Cartão\n");
+    printf("- [c] Cartão\n");
+    printf("- [d] Dinheiro\n");
+    printf("- [x] Venda Cancelada\n\n");
+    for (int i=0; i<qtdVendas; i++){
+        printf("-------------------------------------------------------------------\n");
+        printf("| CLIENTE: [%-4d] | %-25s | CPF: %-11d |\n", infoVendas[i].codCliente, infoVendas[i].nomeCliente, infoVendas[i].cpf);
+        printf("| VENDA:   [%-4d] | R$%-23.2f | TIPO: %-10c |\n", infoVendas[i].numVenda, infoVendas[i].valorPago, infoVendas[i].tipoVenda);
+        printf("-------------------------------------------------------------------\n");
     }
-
-    printf("\n-- Clientes Cadastrados --\n");
-
-    Cliente temp;
-    while (fscanf(arquivo, "%d,%s,%s,%s,%s,%s,%s\n",
-                &temp.cod,
-                &temp.nome,
-                &temp.nome_social,
-                &temp.cpf,
-                &temp.rua_num,
-                &temp.bairro,
-                &temp.celular) != EOF)
-    {
-
-        printf("ID: %d\n", temp.cod);
-        printf("Nome: %s\n", temp.nome);
-        printf("Nome Social: %d\n", temp.nome_social);
-        printf("CPF: %d\n", temp.cpf);
-        printf("Rua: %d\n", temp.rua_num);
-        printf("Bairro: %d\n", temp.bairro);
-        printf("Telefone: %d\n", temp.celular);
-        printf("-------------------------\n");
-    }
-
-    fclose(arquivo);
+    system("pause");
 }
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*Teste ---------*/
+
+typedef struct {
+    float valor;
+    char tipo; // 'a' - abertura, 's' - sangria, 'd' - dinheiro, 'c' - cartão
+    int num_venda; // 0 se for abertura/sangria
+} MovimentoCaixa;
+
+typedef struct {
+    int num_venda;
+    float valor_total;
+    char forma_pagamento; // 'd'-dinheiro, 'c'-cartão, 'dc'-ambos
+    char situacao; // 'a'-aberto, 'p'-pago
+} Venda;
+
+typedef struct
+{
+    int Cod;
+    char descricaoProd[max_caracter];
+    char Categoria;
+    int codCliente;
+    char nomeCliente[max_caracter];
+    int cpf;
+    int numVenda;
+    float valorPago;
+    char tipoVenda;
+}Produtos;
+
+
+MovimentoCaixa *movimentos = NULL;
+int qtd_movimentos = 0;
+int qtdProdutos;
+int qtdVendas;
+Venda *vendas = NULL;
+int qtd_vendas = 0;
+float saldo_caixa = 0.0;
+Produtos produtos[];
+Produtos infoVendas[];
+
+
+
+
+
