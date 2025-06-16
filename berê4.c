@@ -4,11 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
+#include <time.h>
 
 #define USUARIO "usuarios.bin"
 #define CLIENTE "clientes.bin"
 #define PRODUTO "produtos.bin"
 #define CATEGORIA "categorias.bin"
+#define VENDAS "vendas.bin"
 #define Max_cpf 99999999999
 #define Max_Login 13
 #define Max_Senha 9
@@ -55,7 +57,28 @@ typedef struct
     int num_Id;
 }Categoria;
 
+typedef struct Itens
+{
+    int id;
+    int quantidade_levada;
+    float preco_Venda;
+    float valor_total;
+    char desclicao[Max_Nome_Comp];
+    char pagamento;
+    struct Itens *prox;
+}Itens;
 
+typedef struct Carrinho
+{
+    int num_Da_Venda;
+    int id_Cliente;
+    int data_Di, data_Mes, data_Ano;
+    Itens *iten;
+    float total_Venda;
+    struct Carrinho *prox;
+}Carrinho;
+
+typedef Itens *No;
 
 //  ---- VARIÁVEIS GLOBAIS -------
 
@@ -65,9 +88,19 @@ void cadatro_Usuario(FILE *);
 void cadastro_Cliente(FILE *);
 void cadastro_Produtos(FILE *, FILE *);
 void cadastro_Categorias(FILE *);
+void limpar_Terminal(void);
 void valida_Abertura_Arq(FILE *);
 void limpa_buff(void);
 void tira_espaco(char[]);
+void menu_pagamento(Carrinho **);
+void produtos_Disponivies();
+void produtos_No_Carrinho(Carrinho *);
+void novas_Vendas(Carrinho**);
+void adicionar_Item(Itens **, Itens *);
+void adicionar_Carrinho(Carrinho **, Carrinho *);
+void excluir_Prod_Carr(char, Itens **);
+Carrinho *cadastrar_Carr(void);
+Itens *salvar_Prod_Carr(Itens , int);
 int gera_id(const char *, size_t);
 int menu_Principal(void);
 
@@ -87,6 +120,9 @@ int main()
     FILE *ptFct = fopen(CATEGORIA, "a+b");
     valida_Abertura_Arq(ptFct);
 
+    //  ----- LISTAS ENCADEADAS -----
+    Carrinho *lista = NULL;
+
     do
     {
         switch(opcao = menu_Principal())
@@ -96,6 +132,7 @@ int main()
             break;
 
             case 2:
+                menu_pagamento(&lista);
             break;
 
             case 3:
@@ -140,6 +177,16 @@ int menu_Principal()
 
     scanf("%d", &op);
     return op;
+}
+
+void limpar_Terminal()
+{
+    //vai verificar qual sistema operacional o user esta usando
+    #ifdef _WIN32           //windows
+        system("cls");      //limpa o terminal
+    #else
+        system("clear");
+    #endif
 }
 
 void valida_Abertura_Arq(FILE *Arq)
@@ -393,6 +440,301 @@ void cadastro_Categorias(FILE *ptFct)
     fflush(ptFct);
 }
 
+void menu_pagamento(Carrinho **lista)
+{
+    int op;
+
+    do
+    {
+        limpar_Terminal();
+        printf("\n%45s ==================================", "");
+        printf("\n%53s - MENU VENDAS -", "");
+        printf("\n%45s ==================================", "");
+        printf("\n%50s [1] Nova vendas", "");
+        printf("\n%50s [2] Retirada de caixa", "");
+        printf("\n%50s [3] Pagamento", "");
+        printf("\n%50s [4] Voltar ao menu principal", "");
+        printf("\n%50s Opcao:", "");
+        scanf("%d", &op);
+
+        switch(op)
+        {
+            case 1:
+                novas_Vendas(lista);
+            break;
+
+            case 2:
+
+            break;
+
+            case 3:
+
+            break;
+
+            case 4:
+
+            break;
+
+            default:
+            break;
+        }
+    } while (op != 4);
+
+}
+
+void produtos_Disponivies()
+{
+    Produto itens;
+
+    FILE *ptFp = fopen(PRODUTO, "rb");
+    valida_Abertura_Arq(ptFp);
+
+    printf("\n%45s ==================================", "");
+    printf("\n%53s - PRODUTOS -", "");
+    printf("\n%45s ==================================", "");
+    printf("\n%50s - %4s%16s%s6%6s -\n", "", "ID", "DESCRICAO", "ESTOQUE", "VALOR");
+
+    rewind(ptFp);
+    while(fread(&itens, sizeof(Produto), 1, ptFp))
+    {
+        printf("\n%50s - %4d%16s%6d%6.2f -", "", itens.id, itens.desclicao, itens.quant_Estoque, itens.preco_Venda);
+    }
+
+    fclose(ptFp);
+}
+
+void produtos_No_Carrinho(Carrinho *lista)
+{
+
+    printf("\n%45s ==================================", "");
+    printf("\n%53s - CARRINHO -", "");
+    printf("\n%45s ==================================", "");
+    printf("\n%50s- %4s %16s %6s %6s -\n","", "ID", "DESCRICAO", "QTD", "VALOR");
+
+    Itens *aux;
+    for (Carrinho *c = lista; c != NULL; c = c->prox) {
+        for (aux = c->iten; aux != NULL; aux = aux->prox) {
+            printf("\n%50s- %4d %16s %6d %6.2f -\n","", aux->id, aux->desclicao, aux->quantidade_levada, aux->preco_Venda);
+        }
+    }
+    printf("\n%45s ==================================", "");
+}
+
+void novas_Vendas( Carrinho **lista)
+{
+    int codigo, quantidade, produtos_encontrados=0;
+    char op, op_Quant, op_Excluir;
+    Produto temp;
+    Itens tempor, *iten_Do_Carr;
+
+    //cria um novo carrinho para esse cliente
+    Carrinho *carrinho = cadastrar_Carr();
+
+    do
+    {
+        limpar_Terminal();
+        produtos_Disponivies();
+        produtos_No_Carrinho(carrinho);
+
+        FILE *ptFp = fopen(PRODUTO, "rb");
+        valida_Abertura_Arq(ptFp);
+
+        do
+        {
+            printf("\n%50s Informe o codigo: ", "");
+            scanf("%d", &codigo);
+        } while(codigo < 0);
+
+        rewind(ptFp);
+        while(fread(&temp, sizeof(Produto), 1, ptFp) == 1)
+        {
+            if(codigo == temp.id)
+            {
+                produtos_encontrados = 1;
+                if(temp.quant_Estoque == 0)
+                    printf("\n%50s O estoque desse produto está vazio!!!", "");
+                else
+                {
+                    printf("\n%50s Informe a quantidade: ", "");
+                    scanf("%d", &quantidade);
+
+                    if(quantidade > temp.quant_Estoque)
+                    {
+                        printf("\n%50s Quantidade de itens e superior ao estoque! Deseja contiar(s/n): ", "");
+                        limpa_buff();
+                        scanf("%c", &op_Quant);
+                        if(op_Quant == 'n')
+                            break;
+                    }
+
+                    temp.quant_Estoque -= quantidade;
+                    if(temp.estoque_Minimo == temp.quant_Estoque)
+                        printf("\n%50s Quantidade de estoque minimo atingida!!!\n", "");
+
+                    //passa as informações do produto para a lista itens
+                    tempor.id=temp.id;strcpy(tempor.desclicao, temp.desclicao);tempor.preco_Venda=temp.preco_Venda;
+                    iten_Do_Carr = salvar_Prod_Carr(tempor, quantidade);
+
+                    //adiciona o item no carrinho
+                    adicionar_Item(&(carrinho->iten), iten_Do_Carr);
+
+                    printf("\n%50s Deseja adicionar mais algun produto ao carrinho? (s/n): ", "");
+                    limpa_buff();
+                    scanf("%c", &op);
+                }
+            }
+        }
+
+        if(produtos_encontrados == 0)
+        printf("\n%50s Codigo informado invalido ou nao existe!!!", "");
+
+        fclose(ptFp);
+    } while(op != 'n');
+
+    //resulmo da compra
+    do
+    {
+        limpar_Terminal();
+        produtos_No_Carrinho(carrinho);
+        printf("\n%50s - Deseja excluir algum produto (s/n): ", "");
+        limpa_buff();
+        scanf("%c", &op_Excluir);
+        excluir_Prod_Carr(op_Excluir, &(carrinho->iten));
+    }while(op_Excluir != 'n');
+
+    //adiciona carrinho a lista
+    adicionar_Carrinho(lista, carrinho);
+}
+
+Carrinho *cadastrar_Carr()
+{
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+
+    int id;
+    Cliente temp;
+
+    FILE *ptFc = fopen(CLIENTE, "rb");
+    valida_Abertura_Arq(ptFc);
+
+    Carrinho *carr = (Carrinho *)  malloc(sizeof(Carrinho));
+
+    //cadastrar o numero da vendo, que vai ser o numero do nosso carrinho
+    carr->num_Da_Venda = gera_id(VENDAS, sizeof(Carrinho));
+
+    //cadastra o id do cliente, como nosso id é gerado automaticamente esse menu vai mostrar os disponiveis
+    printf("\n%45s ==================================", "");
+    printf("\n%53s - CLIENTES -", "");
+    printf("\n%45s ==================================", "");
+    printf("\n%50s - %4s%16s -\n", "", "ID", "NOME");
+    rewind(ptFc);
+    while(fread(&temp, sizeof(Cliente), 1, ptFc) == 1)
+    {
+        printf("\n%50s %4d%16s", "", temp.id, temp.nome_completo);
+    }
+    printf("\n%45s ==================================", "");
+    printf("\n%50s Informe o id do cliente: ", "");
+    scanf("%d", &id);
+    carr->id_Cliente = id;
+
+    //cadastra a data na horada compra
+    carr->data_Di = tm_info->tm_mday;
+    carr->data_Mes = tm_info->tm_mon + 1;
+    carr->data_Ano = tm_info->tm_year + 1900;
+
+    //valor total das vendas desse carrinho
+    carr->total_Venda = 0;
+
+    //a lista de produtos do carrinho
+    carr->iten = NULL;
+
+    //como inicializamos a lista carrinho o proximo vai ser null
+    carr->prox = NULL;
+
+    fclose(ptFc);
+    return carr;
+}
+
+Itens *salvar_Prod_Carr(Itens produto, int quantidade)
+{
+    Itens *novo = (Itens*) malloc(sizeof(Itens));
+
+    novo->id = produto.id;
+    strcpy(novo->desclicao, produto.desclicao);
+    novo->preco_Venda = produto.preco_Venda;
+    novo->quantidade_levada = quantidade;
+    novo->pagamento = 'a';
+    novo->valor_total = (quantidade * produto.preco_Venda);
+    novo->prox = NULL;
+
+    return novo;
+}
+
+void adicionar_Item(Itens **lista, Itens *novoItem) {
+    if (*lista == NULL) {
+        *lista = novoItem;
+    } else {
+        Itens *aux = *lista;
+        while (aux->prox != NULL) {
+            aux = aux->prox;
+        }
+        aux->prox = novoItem;
+    }
+}
+
+void adicionar_Carrinho(Carrinho **lista, Carrinho *novoCarrinho) {
+    if (*lista == NULL) {
+        *lista = novoCarrinho;
+    } else {
+        Carrinho *aux = *lista;
+        while (aux->prox != NULL) {
+            aux = aux->prox;
+        }
+        aux->prox = novoCarrinho;
+    }
+}
+
+void excluir_Prod_Carr(char op, Itens **lista)
+{
+    int id;
+    Itens *atual = *lista;
+    Itens *anterior = NULL;
+
+    if(op == 's')
+    {
+        printf("\n%45s ==================================", "");
+        printf("\n%50s Informe o codigo do produto a ser excluido: ", "");
+        scanf("%d", &id);
+
+        while(atual)
+        {
+            if(atual->id == id)
+            {
+                if(anterior == NULL)
+                {
+                    *lista = atual->prox;
+                }else
+                {
+                    anterior->prox  = atual->prox;
+                }
+
+                free(atual);
+                printf("\n%50s Produto removido do carrinho!!!", "");
+                return;
+            }
+            anterior = atual;
+            atual  = atual->prox;
+        }
+        printf("\n%50s Produto não encontrado no carrinho!", "");
+    }
+}
+
+
+/*
+    falta sanguia e pagamento
+    tambem ffazer a parte de desconto
+    ajustar os conteirdo de valores  - ver com o professor
+*/
 
 
 
