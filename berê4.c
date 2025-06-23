@@ -6,6 +6,13 @@
 #include <locale.h>
 #include <time.h>
 
+#ifdef _WIN32
+    #include <windows.h>
+    #define delay(ms) Sleep(ms)
+#else
+    #include <unistd.h>
+    #define delay(ms) usleep(ms * 1000)
+#endif
 #define USUARIO "usuarios.bin"
 #define CLIENTE "clientes.bin"
 #define PRODUTO "produtos.bin"
@@ -108,14 +115,13 @@ typedef struct Carrinho
     Itens *iten;
     float total_Venda;
     char pagamento;
+    char tipo_Pagamento[2];
     struct Carrinho *prox;
 }Carrinho;
 
-typedef Itens *No;
-
 //  ---- VARIÁVEIS GLOBAIS -------
 int aber_Fecha;
-float valor_No_Caixa, valor_Na_Aber, total_D=0, total_C=0;
+float valor_No_Caixa, valor_Na_Aber, total_D=0, total_C=0, abre_Menu=0;
 float margem_De_lucro = 20;
 Usuario user_Atual;
 
@@ -157,6 +163,7 @@ void lista_Produtos_Mais_Vendidos(void);
 void lista_Vendas(void);
 void lista_Vendas_Periodo(void);
 void faturamento_Consolidado(void);
+void liberarMemoriaCarrinho(Carrinho **);
 Carrinho *cadastrar_Carr(void);
 Itens *salvar_Prod_Carr(Itens , int);
 int gera_id(const char *, size_t);
@@ -182,7 +189,9 @@ int main()
     Carrinho *lista = NULL;
 
     // ----- login de usuario ----
-    //registar_Usuario_Atual();
+    user_Atual.tipo_Usuario=0;
+    registar_Usuario_Atual();
+
     do
     {
         switch(opcao = menu_Principal())
@@ -192,7 +201,10 @@ int main()
             break;
 
             case 2:
-                menu_pagamento(&lista);
+                if(abre_Menu == 1)
+                    menu_pagamento(&lista);
+                else
+                    printf("\n%50s O caixa ainda nao foi abreto!!!", "");
             break;
 
             case 3:
@@ -230,6 +242,7 @@ int menu_Principal()
 {
     int op;
 
+    limpar_Terminal();
     printf("\n%45s ==================================", "");
     printf("\n%50s - MENU PRINCIPAL -", "");
     printf("\n%45s ==================================", "");
@@ -296,6 +309,7 @@ void menu_Cadastros(FILE *ptFu, FILE *ptFc, FILE *ptFp, FILE *ptFct)
 
     do
     {
+        limpar_Terminal();
         printf("\n%45s ==================================", "");
         printf("\n%53s - MENU CADASTROS -", "");
         printf("\n%45s ==================================", "");
@@ -562,7 +576,7 @@ void produtos_Disponivies()
     printf("\n%45s ==================================", "");
     printf("\n%53s - PRODUTOS -", "");
     printf("\n%45s ==================================", "");
-    printf("\n%50s - %4s%16s%s6%6s -\n", "", "ID", "DESCRICAO", "ESTOQUE", "VALOR");
+    printf("\n%50s - %4s %16s %6s %6s -\n", "", "ID", "DESCRICAO", "ESTOQUE", "VALOR");
 
     rewind(ptFp);
     while(fread(&itens, sizeof(Produto), 1, ptFp))
@@ -676,7 +690,7 @@ void novas_Vendas(Carrinho **lista)
 
     //trás o resulmo da compra e faz o desconto se nessesário
     resulmo_Da_Venda(carrinho->iten, carrinho);
-
+    printf("\n%d\n", carrinho->id_Cliente);
     //adiciona carrinho a lista
     adicionar_Carrinho(lista, carrinho);
 }
@@ -805,6 +819,7 @@ void adicionar_Carrinho(Carrinho **lista, Carrinho *novoCarrinho) {
             aux = aux->prox;
         }
         aux->prox = novoCarrinho;
+        //*lista = aux;
     }
 }
 
@@ -846,17 +861,13 @@ void excluir_Prod_Carr(char op, Itens **lista)
 void resulmo_Da_Venda(Itens *lista, Carrinho *carrinho)
 {
     float total_A_Pagar=0, desconto;
+    limpar_Terminal();
     printf("\n%45s ==================================", "");
     printf("\n%53s - CARRINHO DO %s -", "", "");//nome do cliente
     printf("\n%45s ==================================", "");
     printf("\n%50s- %4s %16s %6s %6s %6s -\n","", "ID", "DESCRICAO", "QTD", "VALOR", "TOTAL");
 
     Itens *aux, *aux_S;
-    //for (Carrinho *c = lista; c != NULL; c = c->prox) {
-       // for (aux = c->iten; aux != NULL; aux = aux->prox) {
-           // printf("\n%50s- %4d %16s %6d %6.2f -\n","", aux->id, aux->desclicao, aux->quantidade_levada, aux->preco_Venda);
-        //}
-    //}
 
     for(aux = lista; aux != NULL; aux = aux->prox)
     {
@@ -869,7 +880,7 @@ void resulmo_Da_Venda(Itens *lista, Carrinho *carrinho)
         total_A_Pagar += aux_S->valor_total;
     printf("\n%50s \t\tTOTAL A PAGAR: %.2f", "", total_A_Pagar);
 
-    printf("\n%50s Há desconto nessa venda (0-Não há / informe a porcentagem): ", "");
+    printf("\n%50s Ha desconto nessa venda (0-Nao ha / informe a porcentagem): ", "");
     scanf("%f", &desconto);
     if(desconto > 0 && desconto < 100)
     {
@@ -884,54 +895,38 @@ void resulmo_Da_Venda(Itens *lista, Carrinho *carrinho)
 
 void sanguia(Carrinho **lista)
 {
-    int valida=0;
-    float valor_No_Caixa=0, quantia_Retirada;
-    char usuario_L[Max_Login], usuario_S[Max_Senha];
-    Itens *aux;
-    Usuario user;
+    float valor_Caixa = 0, quantia_Retirada;
+    Pagamento conta;
+    Carrinho *aux;
 
-    printf("%50s Informe seu login de usuario", "");
-    limpa_buff();
-    fgets(usuario_L, sizeof(usuario_L), stdin);
-    tira_espaco(usuario_L);
+    if(user_Atual.tipo_Usuario == 1) {
+        FILE *ptFpg = fopen(PAGAMENTO, "rb");
+        valida_Abertura_Arq(ptFpg);
 
-    FILE *ptFu = fopen(USUARIO, "rb");
-    valida_Abertura_Arq(ptFu);
-    rewind(ptFu);
-    while(fread(&user, sizeof(Usuario), 1, ptFu) == 1)
-    {
-        if(strcmp(user.login, usuario_L) == 0)
+        // Soma apenas pagamentos em dinheiro ('d' ou 'md')
+        for(aux = *lista; aux != NULL; aux = aux->prox)
         {
-            valida = 1;
-            if(user.tipo_Usuario == 1)
-            {
-                printf("%50s Informe sua senha:", "");
-                limpa_buff();
-                fgets(usuario_S, sizeof(usuario_S), stdin);
-                tira_espaco(usuario_S);
-                if(strcmp(user.senha, usuario_S) == 0)
-                {
-                    for (Carrinho *c = *lista; c != NULL; c = c->prox) {
-                        for (aux = c->iten; aux != NULL; aux = aux->prox) {
-                            valor_No_Caixa += aux->valor_total;
-                        }
-                    }
-
-                    printf("%50s O caixa tem R$ %.2f em notas", "", valor_No_Caixa);
-                    printf("%50s deseja retirar qual quantia (valor minimo de caixa R$50,00)", "");
-                    printf("%50s Valor:)", "");
-                    scanf("%f", &quantia_Retirada);
-                    valor_No_Caixa-=quantia_Retirada;
-                    if(valor_No_Caixa <  50)
-                        printf("\n%50s Valar retirado deixou o caixa com menos de R$50, devolva!", "");
-                }
-            }
-
+            if(strcmp(aux->tipo_Pagamento, "d") == 0)
+                valor_Caixa += conta.valor_Pago_Dinhe;
+            valor_Caixa += valor_Na_Aber;
         }
+
+        printf("\n%50s O caixa tem R$ %.2f em notas", "", valor_No_Caixa);
+        printf("\n%50s Deseja retirar qual quantia? (valor mínimo de caixa R$50,00): ", "");
+        scanf("%f", &quantia_Retirada);
+
+        if((valor_Caixa - quantia_Retirada) >= 50) {
+            valor_No_Caixa -= quantia_Retirada;
+            printf("\n%50s Retirada realizada! Novo saldo: R$%.2f", "", valor_No_Caixa);
+        } else {
+            printf("\n%50s Valor retirado deixaria o caixa com menos de R$50,00!", "");
+        }
+
+        fclose(ptFpg);
+    } else {
+        printf("\n%50s Apenas administradores podem fazer retiradas!", "");
     }
-    if(valida == 0)
-        printf("\n%50s Id invalida ou nao existe!!!", "");
-    fclose(ptFu);
+    delay(1000);
 }
 
 void pagamento(Carrinho **lista)
@@ -951,25 +946,32 @@ void pagamento(Carrinho **lista)
 
     FILE *ptFc = fopen(CLIENTE, "rb");
     valida_Abertura_Arq(ptFc);
-    for(c = *lista; c != NULL; c =  c->prox)
+    for(c = *lista; c != NULL; c = c->prox)
     {
-        fseek(ptFc, -(c->id_Cliente)*sizeof(Cliente), SEEK_SET );
-        fread(&cliente, sizeof(Cliente), 1, ptFc);
+        rewind(ptFc);
+        while(fread(&cliente, sizeof(Cliente), 1, ptFc))
+        {
+            if(c->id_Cliente == cliente.id)
+            {
+                printf("\n%50s- %4d %16s %2c %6.2f -", "", c->id_Cliente, cliente.nome_completo, c->pagamento, c->total_Venda);
+            }
+        }
+        //fseek(ptFc, (c->id_Cliente - 1)*sizeof(Cliente), SEEK_SET );
+        //fread(&cliente, sizeof(Cliente), 1, ptFc);
 
-        printf("\n%50s- %4d %16s %2c %6.2f -", "", c->num_Da_Venda, cliente.nome_completo, c->pagamento, c->total_Venda);
     }
     printf("\n%45s ==================================", "");
     printf("\n%50s Informe o ID do carrinho a ser pago: ", "");
     scanf("%d", &id_Carr);
     for(aux = *lista; aux != NULL; aux = aux->prox)
     {
-        if(id_Carr  == aux->num_Da_Venda)
+        if(id_Carr  == aux->id_Cliente)
         {
             if(aux->pagamento == 'a')
             {
-                conta.num_Venda  = aux->num_Da_Venda;
+                conta.num_Venda  = id_Carr;
                 conta.dia_Venda = aux->data_Di;
-                fseek(ptFc, -(id_Carr)*sizeof(Cliente), SEEK_SET );
+                fseek(ptFc, (aux->id_Cliente - 1)*sizeof(Cliente), SEEK_SET );
                 fread(&cliente, sizeof(Cliente), 1, ptFc);
                 strcpy(conta.nome_Cliente, cliente.nome_completo);
                 conta.total_Pago = aux->total_Venda;
@@ -994,7 +996,7 @@ void pagamento(Carrinho **lista)
                             printf("\n%53s - CARTAO -", "");
                             printf("\n%45s ==================================", "");
                             printf("\n%50s Aproximando cartao.....", "");
-                            //colocar um delei aqui
+                            delay(1000);
                             printf("\n%50s Total da conta: R$%.2f", "", aux->total_Venda);
                             printf("\n%50s [1] Cartao passado com sucesso...", "");
                             printf("\n%50s [0] Erro ao passar o cartao", "");
@@ -1010,6 +1012,7 @@ void pagamento(Carrinho **lista)
                                 aux->pagamento = 'f';
                                 conta.valor_Pago_Cat = valor_Venda;
                                 total_C += valor_Venda;
+                                strcpy(aux->tipo_Pagamento, 'c');
                                 salva_Pagamento(conta);
                             }
                         break;
@@ -1043,6 +1046,7 @@ void pagamento(Carrinho **lista)
                                         total_D += valor_Recebido;
                                         conta.valor_Pago_Cat = valor_Venda - valor_Recebido;
                                         total_C += valor_Venda - valor_Recebido;
+                                        strcpy(aux->tipo_Pagamento, 'md');
                                         salva_Pagamento(conta);
                                     }
                                 } while(valida_Dinheiro == 's');
@@ -1058,6 +1062,7 @@ void pagamento(Carrinho **lista)
                                 aux->pagamento = 'f';
                                 conta.valor_Pago_Dinhe = valor_Recebido;
                                 total_D += valor_Recebido;
+                                strcpy(aux->tipo_Pagamento, 'd');
                                 salva_Pagamento(conta);
                             }else
                             {
@@ -1067,6 +1072,7 @@ void pagamento(Carrinho **lista)
                                 valor_No_Caixa += valor_Venda;
                                 conta.valor_Pago_Dinhe = valor_Venda;
                                 total_D += valor_Venda;
+                                strcpy(aux->tipo_Pagamento, 'd');
                                 salva_Pagamento(conta);
                             }
 
@@ -1074,6 +1080,7 @@ void pagamento(Carrinho **lista)
 
                         case 3:
                             printf("\n%50s Voltando ao menu anterior....", "");
+                            delay(1000);
                         break;
 
                         default:
@@ -1083,6 +1090,7 @@ void pagamento(Carrinho **lista)
             }else
             {
                 printf("\n%50s Venda ja esta fechada...", "");
+                delay(1000);
             }
         }
     }
@@ -1143,6 +1151,7 @@ void registar_Usuario_Atual()
             }else
             {
                 printf("\n%50s Senha incorreta!!!","");
+                delay(3000);
             }
 
         }
@@ -1151,6 +1160,7 @@ void registar_Usuario_Atual()
     if(valida == 0)
     {
         printf("\n%50s Usuario nao encontrado!!!","");
+        delay(3000);
         strcpy(user_Atual.login, "0");
     }
 
@@ -1185,14 +1195,17 @@ void abretura_Caixa()
                     } while(valor_No_Caixa < 0);
                     valor_Na_Aber = valor_No_Caixa;
                     aber_Fecha = 1;
+                    abre_Menu = 1;
                 break;
 
                 case 2:
                     printf("\n%50s Voltando....", "");
+                    delay(3000);
                 break;
 
                 default:
                     printf("\n%50s Opcao invalida....", "");
+                    delay(3000);
                 break;
             }
         } while (op != 2);
@@ -1207,62 +1220,68 @@ void fechamento_Caixa(Carrinho **lista)
 {
     int op, quantidade_Vendas=0;
     float total_Faturado=0;
+    char x;
     Carrinho *aux;
 
-    if(user_Atual.tipo_Usuario == 1)
+    if(aber_Fecha == 1)
     {
-        do
+        if(user_Atual.tipo_Usuario == 1)
         {
-            limpar_Terminal();
-            printf("\n%45s ==================================", "");
-            printf("\n%53s - FECHAMENTO DE CAIXA -", "");
-            printf("\n%45s ==================================", "");
-            printf("\n%50s [1] Fechamento de caixa", "");
-            printf("\n%50s [2] Voltar ao menu anterior", "");
-            printf("\n%50s Opcao:", "");
-            scanf("%d", &op);
-            printf("\n%45s ==================================", "");
-
-            switch(op)
+            do
             {
-                case 1:
-                    if(aber_Fecha == 1)
-                    {
-                        for(aux = *lista; aux != NULL; aux =aux->prox)
-                        {
-                            quantidade_Vendas++;
-                            total_Faturado += aux->total_Venda;
-                        }
+                limpar_Terminal();
+                printf("\n%45s ==================================", "");
+                printf("\n%53s - FECHAMENTO DE CAIXA -", "");
+                printf("\n%45s ==================================", "");
+                printf("\n%50s [1] Fechamento de caixa", "");
+                printf("\n%50s [2] Voltar ao menu anterior", "");
+                printf("\n%50s Opcao:", "");
+                scanf("%d", &op);
+                printf("\n%45s ==================================", "");
 
-                        printf("\n%58s - RESUMO -", "");
-                        printf("\n%53s - Quantidade de vendas realizadas no dia: %d", "", quantidade_Vendas);
-                        printf("\n%53s - Total bruto faturado: R$%.2f", "", total_Faturado);
-                        printf("\n%53s - Valor de abretura de caixa: R$%.2f", "", valor_Na_Aber);
-                        printf("\n%53s - Valor total pago em dinheiro: R$%.2f", "", total_D);
-                        printf("\n%53s - Valor total pago em cartao: R$%.2f", "", total_C);
-                        printf("\n%45s ==================================", "");
-                        limpa_buff();
-                        scanf("%c");
-                        aber_Fecha = 0;
-                    }else
-                    {
-                        printf("\n%50s O caixa ainda não foi abreto!!!", "");
-                    }
-                break;
+                switch(op)
+                {
+                    case 1:
+                            for(aux = *lista; aux != NULL; aux =aux->prox)
+                            {
+                                quantidade_Vendas++;
+                                total_Faturado += aux->total_Venda;
+                            }
 
-                case 2:
-                    printf("\n%50s Voltando....", "");
-                break;
+                            printf("\n%58s - RESUMO -", "");
+                            printf("\n%53s - Quantidade de vendas realizadas no dia: %d", "", quantidade_Vendas);
+                            printf("\n%53s - Total bruto faturado: R$%.2f", "", total_Faturado);
+                            printf("\n%53s - Valor de abretura de caixa: R$%.2f", "", valor_Na_Aber);
+                            printf("\n%53s - Valor total pago em dinheiro: R$%.2f", "", total_D);
+                            printf("\n%53s - Valor total pago em cartao: R$%.2f", "", total_C);
+                            printf("\n%45s ==================================", "");
+                            limpa_buff();
+                            printf("\n%50s Precione qualquer tecla para sair: ", "");
+                            scanf("%c", &x);
+                            aber_Fecha = 0;
+                            liberarMemoriaCarrinho(lista);
 
-                default:
-                    printf("\n%50s Opcao invalida....", "");
-                break;
-            }
-        } while (op != 2);
+                    break;
+
+                    case 2:
+                        printf("\n%50s Voltando....", "");
+                    break;
+
+                    default:
+                        printf("\n%50s Opcao invalida....", "");
+                    break;
+                }
+            } while (op != 2);
+        }else
+        {
+            printf("\n%50s Usuario logado não é o ADM...", "");
+        }
     }else
     {
-        printf("\n%50s Usuario logado não é o ADM...", "");
+        printf("\n%50s O caixa ainda não foi abreto!!!", "");
     }
+
+
 }
 
 void relatorio()
@@ -1733,15 +1752,30 @@ void faturamento_Consolidado()
 
 }
 
+void liberarMemoriaCarrinho(Carrinho **inicio) {
+    Carrinho *atualCarrinho, *proxCarrinho;
+    Itens *atualItem, *proxItem;
 
-//          NOTAS DO QUE FALTA
-/*
-    lista dos mais vendidos foi uma logica meio burra mais deve servir
-    zerar o carrinho quando pagar
-    ajustar o nome quando vai pagar, fica aparecendo o mesmo nome
-    colocar deley para poder ler as informações ou apretar qualquer tecla
-    ajustar textos
-*/
-//          TÁ FICANDO BOM ESSA BOMBA
+    atualCarrinho = *inicio;
+
+    while (atualCarrinho != NULL) {
+        proxCarrinho = atualCarrinho->prox;
+
+        // Libera os itens do carrinho
+        atualItem = atualCarrinho->iten;
+        while (atualItem != NULL) {
+            proxItem = atualItem->prox;
+            free(atualItem);
+            atualItem = proxItem;
+        }
+
+        // Libera o carrinho
+        free(atualCarrinho);
+        atualCarrinho = proxCarrinho;
+    }
+
+    *inicio = NULL; // Garante que o ponteiro original aponte para NULL
+}
+
 
 
