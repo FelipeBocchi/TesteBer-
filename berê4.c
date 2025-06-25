@@ -40,7 +40,7 @@ typedef struct
     int id;
     char nome_completo[Max_Nome_Comp];
     char nome_social[Max_nome_Soc];
-    int cpf;
+    char cpf[Max_cpf];
     char rua[Max_endereco];
     int num;
     char bairro[Max_endereco];
@@ -68,7 +68,7 @@ typedef struct
 typedef struct cliOrdenado
 {
     int id;
-    int cpf;
+    char cpf[Max_cpf];
     int telefone;
     char nome_completo[Max_Nome_Comp];
     char nome_social[Max_nome_Soc];
@@ -225,7 +225,10 @@ int main()
 
             case 7:
             break;
+
             default:
+                printf("\n%50s Opcao errada!!!", "");
+                delay(1000);
             break;
         }
     } while(opcao != 7);
@@ -271,6 +274,7 @@ void limpar_Terminal()
 
 void valida_Abertura_Arq(FILE *Arq)
 {
+    //função para validar se o arquivo foi abreto com sucesso
     if(Arq == NULL)
     {
         printf("\n%50s Erro ao abrir o arquivo", "");
@@ -284,20 +288,27 @@ void valida_Abertura_Arq(FILE *Arq)
 
 void limpa_buff()
 {
+    //cria um caracter lê e capetura o /n deixado pela scanf
     char c;
     while((c = getchar()) != '\n' && c != EOF);
 }
 
 void tira_espaco(char string[])
 {
+    //tira o /n das strings nos fgets
     string[strcspn(string, "\n")] = '\0';
 }
 
-int gera_id(const char *arquivo, size_t tamanho_struct) {
+int gera_id(const char *arquivo, size_t tamanho_struct)
+{
     FILE *arq = fopen(arquivo, "rb");
     if (!arq) return 1;
+
+    //desloca o ponteiro do arquivo para o final dele
     fseek(arq, 0, SEEK_END);
+    //ftell retorna a posição do ponteiro, como está no final do arquivo vai dar o tamanhos em bytes
     int id = ftell(arq) / tamanho_struct;
+
     fclose(arq);
     return id + 1;
 }
@@ -418,7 +429,9 @@ void cadastro_Cliente(FILE *ptFc)
     //do
     //{
         printf("\n%50s Cpf: ", "");
-        scanf("%d", &person.cpf);
+        limpa_buff();
+        fgets(person.cpf, sizeof(person.cpf), stdin);
+        tira_espaco(person.cpf);
    // } while(person.cpf <= 0 || person.cpf > Max_cpf);
 
 
@@ -493,6 +506,7 @@ void cadastro_Produtos(FILE *ptFp, FILE *ptFct)
         scanf("%d", &iten.estoque_Minimo);
     } while (iten.estoque_Minimo < 0);
 
+    //vai calcular o valor de vendacom base na margem de lucro
     margem_De_lucro /=100;
     iten.preco_Venda = iten.preco_Compra + (iten.preco_Compra * margem_De_lucro);
 
@@ -543,6 +557,7 @@ void menu_pagamento(Carrinho **lista)
 
         switch(op)
         {
+            //sempre passando nossa lista/carrinho como paramentro
             case 1:
                 novas_Vendas(lista);
             break;
@@ -560,6 +575,8 @@ void menu_pagamento(Carrinho **lista)
             break;
 
             default:
+                printf("\n%50s Opcao invalida!!!", "");
+                delay(1000);
             break;
         }
     } while (op != 4);
@@ -568,6 +585,7 @@ void menu_pagamento(Carrinho **lista)
 
 void produtos_Disponivies()
 {
+    //Objetivo mostrar os produtos no estoque sendo zerados ou com estoque
     Produto itens;
 
     FILE *ptFp = fopen(PRODUTO, "rb");
@@ -589,13 +607,14 @@ void produtos_Disponivies()
 
 void produtos_No_Carrinho(Carrinho *lista)
 {
-
+    //Objetivo mostrar as compras feitas num carrinho em explecificoa
     printf("\n%45s ==================================", "");
     printf("\n%53s - CARRINHO -", "");
     printf("\n%45s ==================================", "");
     printf("\n%50s- %4s %16s %6s %6s -\n","", "ID", "DESCRICAO", "QTD", "VALOR");
 
     Itens *aux;
+    //Dois for serve para acessar os itens no carrinho, como uma matriz
     for (Carrinho *c = lista; c != NULL; c = c->prox) {
         for (aux = c->iten; aux != NULL; aux = aux->prox) {
             printf("\n%50s- %4d %16s %6d %6.2f -\n","", aux->id, aux->desclicao, aux->quantidade_levada, aux->preco_Venda);
@@ -611,12 +630,13 @@ void novas_Vendas(Carrinho **lista)
     Produto temp;
     Itens tempor, *iten_Do_Carr;
 
-    //cria um novo carrinho para esse cliente
+    //cria um novo carrinho para esse cliente, inicializando com as informações básicas
     Carrinho *carrinho = cadastrar_Carr();
 
     do
     {
         limpar_Terminal();
+        // --- Tabela inícial com estoque e os produtos no carrinho do cliente ---
         produtos_Disponivies();
         produtos_No_Carrinho(carrinho);
 
@@ -629,9 +649,11 @@ void novas_Vendas(Carrinho **lista)
             scanf("%d", &codigo);
         } while(codigo < 0);
 
+        // --- Desloca o ponteiro para o início do arquivo ---
         rewind(ptFp);
         while(fread(&temp, sizeof(Produto), 1, ptFp) == 1)
         {
+            // --- Acha o iten desejado ---
             if(codigo == temp.id)
             {
                 produtos_encontrados = 1;
@@ -655,18 +677,21 @@ void novas_Vendas(Carrinho **lista)
                     if(temp.estoque_Minimo == temp.quant_Estoque)
                         printf("\n%50s Quantidade de estoque minimo atingida!!!\n", "");
 
-                    //passa as informações do produto para a lista itens
+                    // --- Cópia as informações do produto para a lista ---
                     tempor.id=temp.id;strcpy(tempor.desclicao, temp.desclicao);tempor.preco_Venda=temp.preco_Venda;
+                    // --- vai criar o iten e cópiar essa informações no iten do carrinho ---
                     iten_Do_Carr = salvar_Prod_Carr(tempor, quantidade);
 
-                    //adiciona o item no carrinho
+                    // --- Agora vai ligar esse novo iten ao carrinho ---
                     adicionar_Item(&(carrinho->iten), iten_Do_Carr);
 
+                    // --- Atualiza o nosso estoque ---
                     atualizar_Estoque(codigo, quantidade);
 
                     printf("\n%50s Deseja adicionar mais algun produto ao carrinho? (s/n): ", "");
                     limpa_buff();
                     scanf("%c", &op);
+                    // --- Loop vai se repetir até terminar a compra dos produtos ---
                 }
             }
         }
@@ -677,7 +702,7 @@ void novas_Vendas(Carrinho **lista)
         fclose(ptFp);
     } while(op != 'n');
 
-    //resulmo da compra
+    // --- Parte adicional, trás a opção de excluir alguns itens ---
     do
     {
         limpar_Terminal();
@@ -691,7 +716,7 @@ void novas_Vendas(Carrinho **lista)
     //trás o resulmo da compra e faz o desconto se nessesário
     resulmo_Da_Venda(carrinho->iten, carrinho);
     printf("\n%d\n", carrinho->id_Cliente);
-    //adiciona carrinho a lista
+    //adiciona esse  carrinho a nossa lista príncipal/ lista de carrinhos
     adicionar_Carrinho(lista, carrinho);
 }
 
@@ -734,6 +759,8 @@ void atualizar_Estoque(int idProduto, int quantidadeComprada)
 
 Carrinho *cadastrar_Carr()
 {
+    // --- Essa função é do tipo ponteiro Carrinho, logo retorna um ponteiro para esse Carrinho ---
+    // --- time() -> função para pegar o tempo do computador
     time_t t = time(NULL);
     struct tm *tm_info = localtime(&t);
 
@@ -743,12 +770,14 @@ Carrinho *cadastrar_Carr()
     FILE *ptFc = fopen(CLIENTE, "rb");
     valida_Abertura_Arq(ptFc);
 
+    // --- Aloca um novo carrimnho ---
     Carrinho *carr = (Carrinho *)  malloc(sizeof(Carrinho));
 
     //cadastrar o numero da vendo, que vai ser o numero do nosso carrinho
     carr->num_Da_Venda = gera_id(VENDAS, sizeof(Carrinho));
 
     //cadastra o id do cliente, como nosso id é gerado automaticamente esse menu vai mostrar os disponiveis
+    // --- Função extra, objetivo é deixar mais dinâmico o programa ---
     printf("\n%45s ==================================", "");
     printf("\n%53s - CLIENTES -", "");
     printf("\n%45s ==================================", "");
@@ -786,6 +815,7 @@ Carrinho *cadastrar_Carr()
 
 Itens *salvar_Prod_Carr(Itens produto, int quantidade)
 {
+    // --- Função do tipo ponteiro Itens, logo retorna um ponteiro para Itens ---
     Itens *novo = (Itens*) malloc(sizeof(Itens));
 
     novo->id = produto.id;
@@ -798,10 +828,14 @@ Itens *salvar_Prod_Carr(Itens produto, int quantidade)
     return novo;
 }
 
-void adicionar_Item(Itens **lista, Itens *novoItem) {
+void adicionar_Item(Itens **lista, Itens *novoItem)
+{
+    // --- vai adicionar o iten se for o primeiro iten na lista ---
     if (*lista == NULL) {
         *lista = novoItem;
-    } else {
+    } else
+    {
+        // se não, vai percorrer a lista para achar o final então ligar esse novo iten
         Itens *aux = *lista;
         while (aux->prox != NULL) {
             aux = aux->prox;
@@ -810,21 +844,24 @@ void adicionar_Item(Itens **lista, Itens *novoItem) {
     }
 }
 
-void adicionar_Carrinho(Carrinho **lista, Carrinho *novoCarrinho) {
+void adicionar_Carrinho(Carrinho **lista, Carrinho *novoCarrinho)
+{
+    // --- adiciona se for o primeiro iten na lista
     if (*lista == NULL) {
         *lista = novoCarrinho;
-    } else {
+    } else
+    {   // --- se não, vai precorrer até o final e ligar o novo produto ---
         Carrinho *aux = *lista;
         while (aux->prox != NULL) {
             aux = aux->prox;
         }
         aux->prox = novoCarrinho;
-        //*lista = aux;
     }
 }
 
 void excluir_Prod_Carr(char op, Itens **lista)
 {
+    // --- Lógica básica para excluir um nó da lista ---
     int id;
     Itens *atual = *lista;
     Itens *anterior = NULL;
@@ -835,26 +872,32 @@ void excluir_Prod_Carr(char op, Itens **lista)
         printf("\n%50s Informe o codigo do produto a ser excluido: ", "");
         scanf("%d", &id);
 
+        // --- se nossa lista for diferente de NULL ---
         while(atual)
         {
+            // --- Vai achar nosso iten ---
             if(atual->id == id)
             {
+                // --- Se nosso iten a ser excluido for o unico ou o primeiro ---
                 if(anterior == NULL)
                 {
                     *lista = atual->prox;
                 }else
                 {
+                    // --- Se não, vai ligar os ponteiros sem preder a referência, assim, excluindo o iten ---
                     anterior->prox  = atual->prox;
                 }
-
+                // --- Libera a memória alocada ---
                 free(atual);
                 printf("\n%50s Produto removido do carrinho!!!", "");
+                delay(1000);
                 return;
             }
             anterior = atual;
             atual  = atual->prox;
         }
         printf("\n%50s Produto não encontrado no carrinho!", "");
+        delay(1000);
     }
 }
 
@@ -863,12 +906,13 @@ void resulmo_Da_Venda(Itens *lista, Carrinho *carrinho)
     float total_A_Pagar=0, desconto;
     limpar_Terminal();
     printf("\n%45s ==================================", "");
-    printf("\n%53s - CARRINHO DO %s -", "", "");//nome do cliente
+    printf("\n%53s - CARRINHO -", "");
     printf("\n%45s ==================================", "");
     printf("\n%50s- %4s %16s %6s %6s %6s -\n","", "ID", "DESCRICAO", "QTD", "VALOR", "TOTAL");
 
     Itens *aux, *aux_S;
 
+    // --- Mostra os produtos na lista de itens ---
     for(aux = lista; aux != NULL; aux = aux->prox)
     {
         float total = aux->preco_Venda * aux->quantidade_levada;
@@ -876,6 +920,7 @@ void resulmo_Da_Venda(Itens *lista, Carrinho *carrinho)
     }
     printf("\n%45s ==================================", "");
 
+    // --- Soma o total a ser pago ---
     for(aux_S = lista; aux_S != NULL; aux_S = aux_S->prox)
         total_A_Pagar += aux_S->valor_total;
     printf("\n%50s \t\tTOTAL A PAGAR: %.2f", "", total_A_Pagar);
@@ -889,6 +934,7 @@ void resulmo_Da_Venda(Itens *lista, Carrinho *carrinho)
     }
 
     printf("\n%50s \t\tTOTAL FINAL: %.2f", "", total_A_Pagar);
+    delay(2000);
 
     carrinho->total_Venda = total_A_Pagar;
 }
@@ -919,14 +965,14 @@ void sanguia(Carrinho **lista)
             valor_No_Caixa -= quantia_Retirada;
             printf("\n%50s Retirada realizada! Novo saldo: R$%.2f", "", valor_No_Caixa);
         } else {
-            printf("\n%50s Valor retirado deixaria o caixa com menos de R$50,00!", "");
+            printf("\n%50s Valor retirado deixaria o caixa com menos de R$50,00 devolva!", "");
         }
 
         fclose(ptFpg);
     } else {
         printf("\n%50s Apenas administradores podem fazer retiradas!", "");
     }
-    delay(1000);
+    delay(2000);
 }
 
 void pagamento(Carrinho **lista)
@@ -956,8 +1002,6 @@ void pagamento(Carrinho **lista)
                 printf("\n%50s- %4d %16s %2c %6.2f -", "", c->id_Cliente, cliente.nome_completo, c->pagamento, c->total_Venda);
             }
         }
-        //fseek(ptFc, (c->id_Cliente - 1)*sizeof(Cliente), SEEK_SET );
-        //fread(&cliente, sizeof(Cliente), 1, ptFc);
 
     }
     printf("\n%45s ==================================", "");
@@ -965,10 +1009,13 @@ void pagamento(Carrinho **lista)
     scanf("%d", &id_Carr);
     for(aux = *lista; aux != NULL; aux = aux->prox)
     {
+        // --- percorrendo a lista vai achar o carrinho desejado ---
         if(id_Carr  == aux->id_Cliente)
         {
+            // --- somente se a compra ainda estiver em aberto ---
             if(aux->pagamento == 'a')
             {
+                // --- vai passar as informações para a conta que será salva no arquivo PAGAMENTO ---
                 conta.num_Venda  = id_Carr;
                 conta.dia_Venda = aux->data_Di;
                 fseek(ptFc, (aux->id_Cliente - 1)*sizeof(Cliente), SEEK_SET );
@@ -991,12 +1038,18 @@ void pagamento(Carrinho **lista)
 
                     switch(op)
                     {
+                        /*
+                            Cada case no final está passando ->fechando a conta
+                                                             ->valor pago de for pago no C/D/Md
+                                                             ->Passa o tipo de pagamento C/D/Md
+                                                             ->salva o pagamento
+                        */
                         case 1:
                             printf("\n%45s ==================================", "");
                             printf("\n%53s - CARTAO -", "");
                             printf("\n%45s ==================================", "");
                             printf("\n%50s Aproximando cartao.....", "");
-                            delay(1000);
+                            delay(2000);
                             printf("\n%50s Total da conta: R$%.2f", "", aux->total_Venda);
                             printf("\n%50s [1] Cartao passado com sucesso...", "");
                             printf("\n%50s [0] Erro ao passar o cartao", "");
@@ -1012,7 +1065,7 @@ void pagamento(Carrinho **lista)
                                 aux->pagamento = 'f';
                                 conta.valor_Pago_Cat = valor_Venda;
                                 total_C += valor_Venda;
-                                strcpy(aux->tipo_Pagamento, 'c');
+                                *aux->tipo_Pagamento = 'c';
                                 salva_Pagamento(conta);
                             }
                         break;
@@ -1046,7 +1099,7 @@ void pagamento(Carrinho **lista)
                                         total_D += valor_Recebido;
                                         conta.valor_Pago_Cat = valor_Venda - valor_Recebido;
                                         total_C += valor_Venda - valor_Recebido;
-                                        strcpy(aux->tipo_Pagamento, 'md');
+                                        strcpy(aux->tipo_Pagamento, "md");
                                         salva_Pagamento(conta);
                                     }
                                 } while(valida_Dinheiro == 's');
@@ -1062,7 +1115,7 @@ void pagamento(Carrinho **lista)
                                 aux->pagamento = 'f';
                                 conta.valor_Pago_Dinhe = valor_Recebido;
                                 total_D += valor_Recebido;
-                                strcpy(aux->tipo_Pagamento, 'd');
+                                *aux->tipo_Pagamento = 'd';
                                 salva_Pagamento(conta);
                             }else
                             {
@@ -1072,7 +1125,7 @@ void pagamento(Carrinho **lista)
                                 valor_No_Caixa += valor_Venda;
                                 conta.valor_Pago_Dinhe = valor_Venda;
                                 total_D += valor_Venda;
-                                strcpy(aux->tipo_Pagamento, 'd');
+                                *aux->tipo_Pagamento = 'd';
                                 salva_Pagamento(conta);
                             }
 
@@ -1151,7 +1204,7 @@ void registar_Usuario_Atual()
             }else
             {
                 printf("\n%50s Senha incorreta!!!","");
-                delay(3000);
+                delay(2000);
             }
 
         }
@@ -1160,7 +1213,7 @@ void registar_Usuario_Atual()
     if(valida == 0)
     {
         printf("\n%50s Usuario nao encontrado!!!","");
-        delay(3000);
+        delay(2000);
         strcpy(user_Atual.login, "0");
     }
 
@@ -1193,6 +1246,7 @@ void abretura_Caixa()
                     {
                         scanf("%f", &valor_No_Caixa);
                     } while(valor_No_Caixa < 0);
+                    delay(1000);
                     valor_Na_Aber = valor_No_Caixa;
                     aber_Fecha = 1;
                     abre_Menu = 1;
@@ -1212,6 +1266,7 @@ void abretura_Caixa()
     }else
     {
         printf("\n%50s Usuario logado não é o ADM...", "");
+        delay(2000);
     }
 
 }
@@ -1378,7 +1433,7 @@ void listar_Clientes()
     rewind(ptFc);
     while(fread(&clientes, sizeof(clientes), 1, ptFc) == 1)
     {
-        printf("\n%50s - %6d %16s %16s %12d %12d", "", clientes.id,
+        printf("\n%50s - %6d %16s %16s %12s %12d", "", clientes.id,
                                                         clientes.nome_completo,
                                                         clientes.nome_social,
                                                         clientes.cpf,
@@ -1413,7 +1468,7 @@ void listar_Clientes_Ordenadamente()
 
     for(aux = lista; aux != NULL; aux = aux->prox)
     {
-        printf("\n%50s - %6d %16s %16s %12d %12d", "", aux->id,
+        printf("\n%50s - %6d %16s %16s %12s %12d", "", aux->id,
                                                         aux->nome_completo,
                                                         aux->nome_social,
                                                         aux->cpf,
@@ -1428,11 +1483,12 @@ void listar_Clientes_Ordenadamente()
 
 void ordena(cliOrdenado **lista, Cliente cliente)
 {
+    // --- Lista ordenada ---
     cliOrdenado *novo = (cliOrdenado*)malloc(sizeof(cliOrdenado));
 
     strcpy(novo->nome_completo, cliente.nome_completo);
     strcpy(novo->nome_social, cliente.nome_social);
-    novo->cpf  = cliente.cpf;
+    strcpy(novo->cpf, cliente.cpf);
     novo->id = cliente.id;
     novo->telefone = cliente.telefone;
     novo->prox = NULL;
@@ -1444,9 +1500,11 @@ void ordena(cliOrdenado **lista, Cliente cliente)
     } else {
         cliOrdenado *atual = *lista;
         // Percorre até achar a posição correta
-        while (atual->prox != NULL && strcmp(novo->nome_completo, atual->prox->nome_completo) > 0) {
+        while (atual->prox != NULL && strcmp(novo->nome_completo, atual->prox->nome_completo) > 0)
+        {
             atual = atual->prox;
         }
+        // --- Lisga os ponteiros colocando esse novo iten no meio de dois nós ---
         novo->prox = atual->prox;
         atual->prox = novo;
     }
@@ -1752,13 +1810,16 @@ void faturamento_Consolidado()
 
 }
 
-void liberarMemoriaCarrinho(Carrinho **inicio) {
+void liberarMemoriaCarrinho(Carrinho **inicio)
+{
     Carrinho *atualCarrinho, *proxCarrinho;
     Itens *atualItem, *proxItem;
 
+    // --- Recebe nossa lista de carrinhos ---
     atualCarrinho = *inicio;
 
-    while (atualCarrinho != NULL) {
+    while (atualCarrinho != NULL)
+    {
         proxCarrinho = atualCarrinho->prox;
 
         // Libera os itens do carrinho
